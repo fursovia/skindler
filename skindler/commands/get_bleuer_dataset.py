@@ -8,6 +8,7 @@ from itertools import islice
 from tqdm import tqdm
 from pathlib import Path
 import json
+import math
 
 import torch
 from nltk.translate.bleu_score import sentence_bleu
@@ -16,13 +17,11 @@ from datasets import concatenate_datasets
 from datasets import load_dataset
 from typer import Typer
 
+from skindler import DATSET_NAME, MODEL_NAME, MAX_LENGTH
 
 app = Typer()
 
 A = TypeVar("A")
-DATSET_NAME = ("wmt14", "ru-en")
-MODEL_NAME = "Helsinki-NLP/opus-mt-en-ru"
-MAX_LENGTH = 256
 
 
 def lazy_groups_of(iterable: Iterable[A], group_size: int) -> Iterator[List[A]]:
@@ -55,7 +54,7 @@ def get_dataset(save_to: Path, batch_size: int = 128, sample: bool = False):
     model = model.eval()
 
     with save_to.open("w") as f:
-        for batch in tqdm(lazy_groups_of(dataset, batch_size)):
+        for batch in tqdm(lazy_groups_of(dataset, batch_size), total=math.ceil(dataset / batch_size)):
             en = [example['translation']['en'] for example in batch]
             ru = [example['translation']['ru'] for example in batch]
 

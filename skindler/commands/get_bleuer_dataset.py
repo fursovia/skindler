@@ -86,3 +86,7 @@ def get_dataset(save_to: Path, batch_size: int = 128, sample: bool = False):
                         ensure_ascii=False
                     ) + "\n"
                 )
+
+
+if __name__ == '__main__':
+    app()

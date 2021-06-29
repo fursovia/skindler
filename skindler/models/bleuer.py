@@ -6,12 +6,12 @@ import torch
 from transformers import MarianMTModel, MarianTokenizer
 import pytorch_lightning as pl
 from torch.utils.data import Dataset, DataLoader
-from typer import Typer
+import typer
 
 from skindler import MODEL_NAME, MAX_LENGTH
 
 
-app = Typer()
+app = typer.Typer()
 
 
 class BleuerDataset(Dataset):
@@ -73,14 +73,14 @@ class Bleuer(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         z = self(x)
-        loss = self.loss(z, y)
+        loss = self.loss(z.view(-1), y.view(-1))
         self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         z = self(x)
-        loss = self.loss(z, y)
+        loss = self.loss(z.view(-1), y.view(-1))
         self.log('val_loss', loss)
         return loss
 
@@ -90,14 +90,22 @@ class Bleuer(pl.LightningModule):
 
 
 @app.command()
-def train(train_path: Path, save_to: Path, batch_size: int = 16):
+def train(
+        train_path: Path = typer.Option(..., exists=True, dir_okay=False),
+        valid_path: Path = typer.Option(..., exists=True, dir_okay=False),
+        save_to: Path = typer.Option(..., file_okay=False),
+        batch_size: int = 128
+):
     train_dataset = BleuerDataset(train_path)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+
+    valid_dataset = BleuerDataset(valid_path)
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
     model = Bleuer()
 
     trainer = pl.Trainer(gpus=1, default_root_dir=str(save_to))
-    trainer.fit(model, train_loader)
+    trainer.fit(model, train_dataloader=train_loader, val_dataloaders=valid_loader)
 
 
 if __name__ == '__main__':

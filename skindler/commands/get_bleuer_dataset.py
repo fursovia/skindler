@@ -54,7 +54,7 @@ def get_dataset(save_to: Path, batch_size: int = 128, sample: bool = False):
     model = model.eval()
 
     with save_to.open("w") as f:
-        for batch in tqdm(lazy_groups_of(dataset, batch_size), total=math.ceil(dataset / batch_size)):
+        for batch in tqdm(lazy_groups_of(dataset, batch_size), total=math.ceil(len(dataset) / batch_size)):
             en = [example['translation']['en'] for example in batch]
             ru = [example['translation']['ru'] for example in batch]
 

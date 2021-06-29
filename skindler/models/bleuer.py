@@ -40,6 +40,7 @@ class Bleuer(pl.LightningModule):
         self.encoder = MarianMTModel.from_pretrained(MODEL_NAME).get_encoder().eval()
         self.linear1 = torch.nn.Linear(512 * 2, 256)
         self.linear2 = torch.nn.Linear(256, 1)
+        self.loss = torch.nn.L1Loss()
 
     def forward(self, texts: List[str]):
         inputs = self.tokenizer(
@@ -71,15 +72,15 @@ class Bleuer(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-        z = self.encoder(x)
-        loss = torch.nn.L1Loss(z, y)
+        z = self(x)
+        loss = self.loss(z, y)
         self.log('train_loss', loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-        z = self.encoder(x)
-        loss = torch.nn.L1Loss(z, y)
+        z = self(x)
+        loss = self.loss(z, y)
         self.log('val_loss', loss)
         return loss
 
@@ -89,9 +90,9 @@ class Bleuer(pl.LightningModule):
 
 
 @app.command()
-def train(train_path: Path, save_to: Path):
+def train(train_path: Path, save_to: Path, batch_size: int = 16):
     train_dataset = BleuerDataset(train_path)
-    train_loader = DataLoader(train_dataset)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size)
 
     model = Bleuer()
 

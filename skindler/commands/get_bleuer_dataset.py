@@ -65,11 +65,9 @@ def get_dataset(save_to: Path, batch_size: int = 128, sample: bool = False):
                 padding=True,
                 truncation=True
             )
-            inputs = {}
-            for k, v in batch_text_inputs.items():
-                inputs[k] = v.to(device)
+            batch_text_inputs.to(device)
 
-            output = model.generate(**inputs)
+            output = model.generate(**batch_text_inputs)
             translations = tokenizer.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
             for en_sentence, ru_sentence, ru_translated_sentence in zip(en, ru, translations):

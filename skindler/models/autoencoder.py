@@ -22,7 +22,7 @@ class AutoEncoder(pl.LightningModule):
         self.tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
         self.encoder = MarianMTModel.from_pretrained(MODEL_NAME).get_encoder().eval()
         self.linear = torch.nn.Linear(512, self.tokenizer.vocab_size)
-        self.loss = torch.nn.CrossEntropyLoss(ignore_index=self.tokenizer.pad_token_id)
+        self.loss = torch.nn.CrossEntropyLoss()  # ignore_index=self.tokenizer.pad_token_id)
 
     def forward(self, texts: List[str]):
         inputs = self.tokenizer(

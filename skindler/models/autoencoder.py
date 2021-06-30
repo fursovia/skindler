@@ -35,8 +35,10 @@ class AutoEncoder(pl.LightningModule):
         inputs.to(self.device)
 
         with torch.no_grad():
+            # batch_size, seq_length, 512
             embeddings = self.encoder(**inputs).last_hidden_state
 
+        # batch_size, seq_lengyh, vocab_size
         logits = self.linear(embeddings)
         return logits, inputs["input_ids"]
 
@@ -55,7 +57,7 @@ class AutoEncoder(pl.LightningModule):
         decoded = self.tokenizer.batch_decode(new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         bleus = []
         for orig, dec in zip(x, decoded):
-            bleus.append(sentence_bleu([dec.lower()], orig.lower()))
+            bleus.append(sentence_bleu([dec.lower().replace('▁', ' ').strip()], orig.lower()))
 
         self.log('bleu', sum(bleus) / len(bleus))
         self.log('val_loss', loss)

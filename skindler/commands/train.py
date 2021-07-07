@@ -41,7 +41,7 @@ def train(
     valid_dataset = SkDataset(valid_path)
     valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
-    model = MODELS[model_name]
+    model = MODELS[model_name]()
 
     date = datetime.datetime.utcnow().strftime('%H%M%S-%d%m')
     save_to = save_to / f"{date}_{str(model_name)}"

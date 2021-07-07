@@ -1,14 +1,11 @@
 from typing import List
-from pathlib import Path
 
 import torch
 from transformers import MarianMTModel, MarianTokenizer
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader
 import typer
 
 from skindler import MODEL_NAME, MAX_LENGTH
-from skindler.dataset import SkDataset
 
 app = typer.Typer()
 
@@ -68,26 +65,3 @@ class Bleuer(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
-
-
-@app.command()
-def train(
-        train_path: Path = typer.Option(..., exists=True, dir_okay=False),
-        valid_path: Path = typer.Option(..., exists=True, dir_okay=False),
-        save_to: Path = typer.Option(..., file_okay=False),
-        batch_size: int = 128
-):
-    train_dataset = SkDataset(train_path)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-
-    valid_dataset = SkDataset(valid_path)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
-
-    model = Bleuer()
-
-    trainer = pl.Trainer(gpus=1, default_root_dir=str(save_to))
-    trainer.fit(model, train_dataloader=train_loader, val_dataloaders=valid_loader)
-
-
-if __name__ == '__main__':
-    app()

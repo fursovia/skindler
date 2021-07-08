@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+from tqdm import tqdm
 
 import torch
 import torch.nn.functional
@@ -37,12 +38,12 @@ def attack(text: str, autoencoder: AutoEncoder, bleuer: Bleuer, epsilon: float =
     perturbed_embeddings = embeddings + epsilon * embeddings_grad.sign()
 
     logits = autoencoder.forward_on_embeddings(perturbed_embeddings)
-    decoded = autoencoder.decode_logits(logits)
+    decoded = autoencoder.decode_logits(logits)[0]
     return decoded
 
 
 @app.command()
-def main(dataset_path: Path, save_to: Path):
+def main(dataset_path: Path, save_to: Path, epsilon: float = 0.25):
     device = torch.device("cuda")
 
     tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
@@ -56,13 +57,13 @@ def main(dataset_path: Path, save_to: Path):
             data.append(json.loads(line.strip()))
 
     with save_to.open('w') as f:
-        for example in data:
+        for example in tqdm(data):
             en = example['en']
             ru = example['ru']
             ru_trans = example['ru_trans']
             # bleu = example['bleu']
 
-            en_attacked = attack(en, autoencoder=autoencoder, bleuer=bleuer)
+            en_attacked = attack(en, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon)
 
             batch_text_inputs = tokenizer(
                 en_attacked,
@@ -74,7 +75,7 @@ def main(dataset_path: Path, save_to: Path):
             batch_text_inputs.to(device)
 
             output = model.generate(**batch_text_inputs)
-            translations = tokenizer.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            translations = tokenizer.batch_decode(output, skip_special_tokens=True, clean_up_tokenization_spaces=True)[0]
 
             f.write(
                 json.dumps(
@@ -84,7 +85,8 @@ def main(dataset_path: Path, save_to: Path):
                         'ru_trans': ru_trans,
                         'en_attacked': en_attacked,
                         'ru_trans_attacked': translations
-                    }
+                    },
+                    ensure_ascii=False
                 ) + '\n'
             )
 

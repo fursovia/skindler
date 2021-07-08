@@ -55,6 +55,7 @@ class AutoEncoder(pl.LightningModule):
     def decode_logits(self, logits: torch.Tensor) -> List[str]:
         new_ids = logits.argmax(dim=-1)
         decoded = self.tokenizer.batch_decode(new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        decoded = [text.replace('▁', ' ').strip() for text in decoded]
         return decoded
 
     def validation_step(self, batch, batch_idx):
@@ -64,7 +65,7 @@ class AutoEncoder(pl.LightningModule):
         decoded = self.decode_logits(logits)
         bleus = []
         for orig, dec in zip(x, decoded):
-            bleus.append(sentence_bleu([dec.lower().replace('▁', ' ').strip()], orig.lower()))
+            bleus.append(sentence_bleu([dec.lower()], orig.lower()))
 
         self.log('bleu', sum(bleus) / len(bleus))
         self.log('val_loss', loss)

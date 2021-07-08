@@ -16,7 +16,6 @@ MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
 app = Typer()
 
 
-@app.command()
 def attack(text: str, autoencoder: AutoEncoder, bleuer: Bleuer, epsilon: float = 0.25):
     inputs = bleuer.tokenizer(
         text,
@@ -42,6 +41,7 @@ def attack(text: str, autoencoder: AutoEncoder, bleuer: Bleuer, epsilon: float =
     return decoded
 
 
+@app.command()
 def main(dataset_path: Path, save_to: Path):
     device = torch.device("cuda")
 

@@ -17,7 +17,7 @@ from datasets import concatenate_datasets
 from datasets import load_dataset
 from typer import Typer
 
-from skindler import DATSET_NAME, MODEL_NAME, MAX_LENGTH
+from skindler import DATASET_NAME, MODEL_NAME, MAX_LENGTH
 
 app = Typer()
 
@@ -40,7 +40,7 @@ def lazy_groups_of(iterable: Iterable[A], group_size: int) -> Iterator[List[A]]:
 
 @app.command()
 def get_dataset(save_to: Path, batch_size: int = 128, sample: bool = False):
-    dataset = load_dataset(*DATSET_NAME)
+    dataset = load_dataset(*DATASET_NAME)
     splits_to_use = ["validation", "test"]
     if not sample:
         splits_to_use.append("train")

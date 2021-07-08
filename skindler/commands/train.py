@@ -3,6 +3,7 @@ import datetime
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning import loggers as pl_loggers
 from torch.utils.data import DataLoader
 import typer
 from enum import Enum
@@ -46,6 +47,7 @@ def train(
     date = datetime.datetime.utcnow().strftime('%H%M%S-%d%m')
     save_to = save_to / f"{date}_{str(model_name)}"
     trainer = pl.Trainer(
+        logger=pl_loggers.TensorBoardLogger(str(save_to / "logs")),
         gpus=1,
         callbacks=[
             ModelCheckpoint(monitor='val_loss', dirpath=str(save_to), save_top_k=3, mode='min'),

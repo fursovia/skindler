@@ -22,6 +22,10 @@ class AutoEncoder(pl.LightningModule):
         self.loss = torch.nn.CrossEntropyLoss()  # ignore_index=self.tokenizer.pad_token_id)
         self.sigma = sigma
 
+    def forward_on_embeddings(self, embeddings: torch.Tensor):
+        logits = self.linear(embeddings)
+        return logits
+
     def forward(self, texts: List[str]):
         inputs = self.tokenizer(
             texts,
@@ -38,7 +42,7 @@ class AutoEncoder(pl.LightningModule):
 
         # TODO: add noisy training embeddings = embeddings + torch.rand()
         # batch_size, seq_lengyh, vocab_size
-        logits = self.linear(embeddings)
+        logits = self.forward_on_embeddings(embeddings)
         return logits, inputs["input_ids"]
 
     def training_step(self, batch, batch_idx):
@@ -48,12 +52,16 @@ class AutoEncoder(pl.LightningModule):
         self.log('train_loss', loss)
         return loss
 
+    def decode_logits(self, logits: torch.Tensor) -> List[str]:
+        new_ids = logits.argmax(dim=-1)
+        decoded = self.tokenizer.batch_decode(new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        return decoded
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits, input_ids = self(x)
         loss = self.loss(logits.view(-1, self.tokenizer.vocab_size), input_ids.view(-1), )
-        new_ids = logits.argmax(dim=-1)
-        decoded = self.tokenizer.batch_decode(new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        decoded = self.decode_logits(logits)
         bleus = []
         for orig, dec in zip(x, decoded):
             bleus.append(sentence_bleu([dec.lower().replace('▁', ' ').strip()], orig.lower()))

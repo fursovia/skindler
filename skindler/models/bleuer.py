@@ -20,6 +20,21 @@ class Bleuer(pl.LightningModule):
         self.linear2 = torch.nn.Linear(256, 1)
         self.loss = torch.nn.L1Loss()
 
+    def forward_on_embeddings(self, embeddings: torch.Tensor, mask: torch.Tensor):
+        embeddings = embeddings * mask
+
+        embeddings = torch.cat(
+            (
+                torch.sum(embeddings, dim=1),
+                torch.max(embeddings, dim=1).values,
+            ),
+            dim=1
+        )
+        out = self.linear1(embeddings)
+        out = torch.relu(out)
+        out = self.linear2(out)
+        return out
+
     def forward(self, texts: List[str]):
         inputs = self.tokenizer(
             texts,
@@ -34,19 +49,7 @@ class Bleuer(pl.LightningModule):
             embeddings = self.encoder(**inputs).last_hidden_state
 
         mask = inputs["attention_mask"].unsqueeze(-1)
-        embeddings = embeddings * mask
-
-        embeddings = torch.cat(
-            (
-                torch.sum(embeddings, dim=1),
-                torch.max(embeddings, dim=1).values,
-            ),
-            dim=1
-        )
-        out = self.linear1(embeddings)
-        out = torch.relu(out)
-        out = self.linear2(out)
-        return out
+        return self.forward_on_embeddings(embeddings, mask)
 
     def training_step(self, batch, batch_idx):
         x, y = batch

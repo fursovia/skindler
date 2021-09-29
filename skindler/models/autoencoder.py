@@ -84,6 +84,7 @@ if __name__ == '__main__':
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
         eval_steps=100,
+        evaluation_strategy='steps',
         save_steps=100,
         do_train=True,
         do_eval=True,

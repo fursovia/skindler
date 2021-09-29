@@ -20,7 +20,7 @@ class MarianAutoEncoder(torch.nn.Module):
     def forward(
         self,
         input_ids=None,
-        labels=None,
+        calculate_loss=True,
         attention_mask=None,
         head_mask=None,
         inputs_embeds=None,
@@ -43,16 +43,16 @@ class MarianAutoEncoder(torch.nn.Module):
         logits = self.linear(embeddings)
 
         loss = None
-        if labels is not None:
+        if calculate_loss:
             if attention_mask is not None:
                 active_loss = attention_mask.view(-1) == 1
                 active_logits = logits.view(-1, self.num_labels)
                 active_labels = torch.where(
-                    active_loss, labels.view(-1), torch.tensor(self.loss.ignore_index).type_as(labels)
+                    active_loss, input_ids.view(-1), torch.tensor(self.loss.ignore_index).type_as(input_ids)
                 )
                 loss = self.loss(active_logits, active_labels)
             else:
-                loss = self.loss(logits.view(-1, self.num_labels), labels.view(-1))
+                loss = self.loss(logits.view(-1, self.num_labels), input_ids.view(-1))
 
         if not return_dict:
             output = (logits,) + outputs[2:]

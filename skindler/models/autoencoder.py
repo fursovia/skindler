@@ -1,76 +1,114 @@
-from typing import List, Optional
-
 import torch
-from transformers import MarianMTModel, MarianTokenizer
-import pytorch_lightning as pl
-import typer
-from nltk.translate.bleu_score import sentence_bleu
+from transformers.models.marian.modeling_marian import MarianEncoder
+from transformers import MarianTokenizer, Trainer, default_data_collator
+from transformers.training_args import TrainingArguments
+from transformers.modeling_outputs import TokenClassifierOutput
+from datasets import load_dataset
 
 from skindler import MODEL_NAME, MAX_LENGTH
 
 
-app = typer.Typer()
-
-
-class AutoEncoder(pl.LightningModule):
-
-    def __init__(self, sigma: Optional[float] = None):
+class MarianAutoEncoder(torch.nn.Module):
+    def __init__(self, model_name: str, dropout: float = 0.1):
         super().__init__()
-        self.tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
-        self.encoder = MarianMTModel.from_pretrained(MODEL_NAME).get_encoder().eval()
-        self.linear = torch.nn.Linear(512, self.tokenizer.vocab_size)
-        self.loss = torch.nn.CrossEntropyLoss()  # ignore_index=self.tokenizer.pad_token_id)
-        self.sigma = sigma
+        self.encoder = MarianEncoder.from_pretrained(model_name).eval()
+        self.num_labels = self.encoder.config.vocab_size
+        self.linear = torch.nn.Linear(512, self.num_labels)
+        self.dropout = torch.nn.Dropout(dropout)
+        self.loss = torch.nn.CrossEntropyLoss()
 
-    def forward_on_embeddings(self, embeddings: torch.Tensor):
-        logits = self.linear(embeddings)
-        return logits
-
-    def forward(self, texts: List[str]):
-        inputs = self.tokenizer(
-            texts,
-            max_length=MAX_LENGTH,
-            return_tensors='pt',
-            padding=True,
-            truncation=True
-        )
-        inputs.to(self.device)
-
+    def forward(
+        self,
+        input_ids=None,
+        labels=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
         with torch.no_grad():
-            # batch_size, seq_length, 512
-            embeddings = self.encoder(**inputs).last_hidden_state
+            outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                head_mask=head_mask,
+                inputs_embeds=inputs_embeds,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+            )
+            embeddings = outputs.last_hidden_state
 
-        # TODO: add noisy training embeddings = embeddings + torch.rand()
-        # batch_size, seq_lengyh, vocab_size
-        logits = self.forward_on_embeddings(embeddings)
-        return logits, inputs["input_ids"]
+        embeddings = self.dropout(embeddings)
+        logits = self.linear(embeddings)
 
-    def training_step(self, batch, batch_idx):
-        x, y = batch
-        logits, input_ids = self(x)
-        loss = self.loss(logits.view(-1, self.tokenizer.vocab_size), input_ids.view(-1), )
-        self.log('train_loss', loss)
-        return loss
+        loss = None
+        if labels is not None:
+            if attention_mask is not None:
+                active_loss = attention_mask.view(-1) == 1
+                active_logits = logits.view(-1, self.num_labels)
+                active_labels = torch.where(
+                    active_loss, labels.view(-1), torch.tensor(self.loss.ignore_index).type_as(labels)
+                )
+                loss = self.loss(active_logits, active_labels)
+            else:
+                loss = self.loss(logits.view(-1, self.num_labels), labels.view(-1))
 
-    def decode_logits(self, logits: torch.Tensor) -> List[str]:
-        new_ids = logits.argmax(dim=-1)
-        decoded = self.tokenizer.batch_decode(new_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-        decoded = [text.replace('▁', ' ').strip() for text in decoded]
-        return decoded
+        if not return_dict:
+            output = (logits,) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
 
-    def validation_step(self, batch, batch_idx):
-        x, y = batch
-        logits, input_ids = self(x)
-        loss = self.loss(logits.view(-1, self.tokenizer.vocab_size), input_ids.view(-1), )
-        decoded = self.decode_logits(logits)
-        bleus = []
-        for orig, dec in zip(x, decoded):
-            bleus.append(sentence_bleu([dec.lower()], orig.lower()))
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
 
-        self.log('bleu', sum(bleus) / len(bleus))
-        self.log('val_loss', loss)
-        return loss
 
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+if __name__ == '__main__':
+    args = {
+        'output_dir': './logs',
+        'cache_dir': 'cache',
+        'model_name': MODEL_NAME,
+        'text_column_name': 'en',
+
+    }
+    data_files = {"train": "data/valid_small.json", "validation": "data/valid_small.json"}
+    training_args = TrainingArguments(output_dir=args['output_dir'])
+    raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
+    column_names = raw_datasets["train"].column_names
+    tokenizer = MarianTokenizer.from_pretrained(args['model_name'])
+
+    def tokenize_function(examples):
+        return tokenizer(examples[args['text_column_name']], padding=True, truncation=True, max_length=MAX_LENGTH)
+
+    with training_args.main_process_first(desc="dataset map tokenization"):
+        tokenized_datasets = raw_datasets.map(
+            tokenize_function,
+            batched=True,
+            num_proc=4,
+            remove_columns=column_names,
+            desc="Running tokenizer on every text in dataset",
+        )
+
+    model = MarianAutoEncoder(args['model_name'])
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=tokenized_datasets['train'],
+        eval_dataset=tokenized_datasets['validation'],
+        tokenizer=tokenizer,
+        data_collator=default_data_collator,
+    )
+
+    train_result = trainer.train()
+    trainer.save_model()
+    trainer.log_metrics("train", train_result.metrics)
+    trainer.save_metrics("train", train_result.metrics)
+    trainer.save_state()
+
+    metrics = trainer.evaluate()
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)

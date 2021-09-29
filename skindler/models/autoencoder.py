@@ -1,6 +1,6 @@
 import torch
 from transformers.models.marian.modeling_marian import MarianEncoder
-from transformers import MarianTokenizer, Trainer, default_data_collator
+from transformers import MarianTokenizer, Trainer, default_data_collator, EvalPrediction
 from transformers.training_args import TrainingArguments
 from transformers.modeling_outputs import TokenClassifierOutput
 from datasets import load_dataset
@@ -75,7 +75,17 @@ if __name__ == '__main__':
 
     }
     data_files = {"train": "data/train.json", "validation": "data/valid.json"}
-    training_args = TrainingArguments(output_dir=args['output_dir'], report_to=['wandb'], save_total_limit=10)
+    training_args = TrainingArguments(
+        output_dir=args['output_dir'],
+        report_to=['wandb'],
+        save_total_limit=10,
+        label_names=['input_ids'],
+        dataloader_num_workers=4,
+        per_device_train_batch_size=16,
+        per_device_eval_batch_size=16,
+        eval_steps=500,
+        save_steps=500,
+    )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names
     tokenizer = MarianTokenizer.from_pretrained(args['model_name'])
@@ -99,6 +109,13 @@ if __name__ == '__main__':
 
     model = MarianAutoEncoder(args['model_name'])
 
+    def compute_metrics(p: EvalPrediction):
+        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+        input_ids = p.label_ids  # shape [batch_size, seq_length]
+        preds = torch.argmax(preds, dim=1)  # shape [batch_size, seq_length]
+        metric = (preds == input_ids).all(axis=1).mean().item()
+        return {'EM': metric}
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -106,6 +123,7 @@ if __name__ == '__main__':
         eval_dataset=tokenized_datasets['validation'],
         tokenizer=tokenizer,
         data_collator=default_data_collator,
+        compute_metrics=compute_metrics,
     )
 
     train_result = trainer.train()

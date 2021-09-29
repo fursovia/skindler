@@ -74,8 +74,8 @@ if __name__ == '__main__':
         'text_column_name': 'en',
 
     }
-    data_files = {"train": "data/valid_small.json", "validation": "data/valid_small.json"}
-    training_args = TrainingArguments(output_dir=args['output_dir'])
+    data_files = {"train": "data/train.json", "validation": "data/valid.json"}
+    training_args = TrainingArguments(output_dir=args['output_dir'], report_to=['wandb'], save_total_limit=10)
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names
     tokenizer = MarianTokenizer.from_pretrained(args['model_name'])

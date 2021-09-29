@@ -81,7 +81,7 @@ if __name__ == '__main__':
     tokenizer = MarianTokenizer.from_pretrained(args['model_name'])
 
     def tokenize_function(examples):
-        return tokenizer.encode(
+        return tokenizer(
             examples[args['text_column_name']],
             padding='max_length',
             truncation=True,

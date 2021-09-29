@@ -68,7 +68,7 @@ class MarianAutoEncoder(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './logs',
+        'output_dir': './ae_logs',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',

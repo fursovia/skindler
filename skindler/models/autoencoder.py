@@ -83,8 +83,10 @@ if __name__ == '__main__':
         dataloader_num_workers=4,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        eval_steps=500,
-        save_steps=500,
+        eval_steps=100,
+        save_steps=100,
+        do_train=True,
+        do_eval=True,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names

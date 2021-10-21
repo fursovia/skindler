@@ -1,8 +1,10 @@
 import torch
 from transformers.models.marian.modeling_marian import MarianEncoder
-from transformers import MarianTokenizer, Trainer, default_data_collator, EvalPrediction
+from transformers import MarianTokenizer, Trainer, default_data_collator
 from transformers.training_args import TrainingArguments
 from transformers.modeling_outputs import TokenClassifierOutput
+from transformers.trainer_utils import IntervalStrategy
+from transformers import EarlyStoppingCallback
 from datasets import load_dataset
 
 from skindler import MODEL_NAME, MAX_LENGTH
@@ -79,15 +81,18 @@ if __name__ == '__main__':
         output_dir=args['output_dir'],
         report_to=['wandb'],
         save_total_limit=10,
-        label_names=['input_ids'],
         dataloader_num_workers=4,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        # eval_steps=100,
-        # evaluation_strategy='steps',
-        save_steps=5000,
+        per_device_train_batch_size=128,
+        per_device_eval_batch_size=128,
         do_train=True,
-        # do_eval=True,
+        do_eval=True,
+        metric_for_best_model='eval_loss',
+        load_best_model_at_end=True,
+        save_strategy=IntervalStrategy.STEPS,
+        evaluation_strategy=IntervalStrategy.STEPS,
+        eval_steps=500,
+        save_steps=500,
+        learning_rate=0.003,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names
@@ -112,13 +117,6 @@ if __name__ == '__main__':
 
     model = MarianAutoEncoder(args['model_name'])
 
-    def compute_metrics(p: EvalPrediction):
-        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        input_ids = p.label_ids  # shape [batch_size, seq_length]
-        preds = torch.argmax(preds, dim=1)  # shape [batch_size, seq_length]
-        metric = (preds == input_ids).all(axis=1).mean().item()
-        return {'EM': metric}
-
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -126,7 +124,7 @@ if __name__ == '__main__':
         eval_dataset=tokenized_datasets['validation'],
         tokenizer=tokenizer,
         data_collator=default_data_collator,
-        # compute_metrics=compute_metrics,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)]
     )
 
     train_result = trainer.train()

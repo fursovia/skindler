@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 from tqdm import tqdm
+import transformers
 
 import torch
 import torch.nn.functional

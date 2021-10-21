@@ -3,6 +3,7 @@ from transformers.models.marian.modeling_marian import MarianEncoder
 from transformers import MarianTokenizer, Trainer, default_data_collator
 from transformers.training_args import TrainingArguments
 from transformers.modeling_outputs import SequenceClassifierOutput
+from transformers import EarlyStoppingCallback
 from datasets import load_dataset
 
 from skindler import MODEL_NAME, MAX_LENGTH
@@ -84,11 +85,12 @@ if __name__ == '__main__':
         dataloader_num_workers=4,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        # eval_steps=100,
-        # evaluation_strategy='steps',
+        eval_steps=5000,
         save_steps=5000,
         do_train=True,
-        # do_eval=True,
+        do_eval=True,
+        metric_for_best_model='eval_loss',
+        load_best_model_at_end=True
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names
@@ -121,6 +123,7 @@ if __name__ == '__main__':
         eval_dataset=tokenized_datasets['validation'],
         tokenizer=tokenizer,
         data_collator=default_data_collator,
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)]
     )
 
     train_result = trainer.train()

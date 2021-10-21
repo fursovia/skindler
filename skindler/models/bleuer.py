@@ -4,6 +4,7 @@ from transformers import MarianTokenizer, Trainer, default_data_collator
 from transformers.training_args import TrainingArguments
 from transformers.modeling_outputs import SequenceClassifierOutput
 from transformers import EarlyStoppingCallback
+from transformers.trainer_utils import IntervalStrategy
 from datasets import load_dataset
 
 from skindler import MODEL_NAME, MAX_LENGTH
@@ -90,7 +91,9 @@ if __name__ == '__main__':
         do_train=True,
         do_eval=True,
         metric_for_best_model='eval_loss',
-        load_best_model_at_end=True
+        load_best_model_at_end=True,
+        save_strategy=IntervalStrategy.STEPS,
+        evaluation_strategy=IntervalStrategy.STEPS
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names

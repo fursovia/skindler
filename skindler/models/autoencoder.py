@@ -70,13 +70,13 @@ class MarianAutoEncoder(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './ae_logs',
+        'output_dir': './experiments/ae',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',
 
     }
-    data_files = {"train": "data/train.json", "validation": "data/valid_small.json"}
+    data_files = {"train": "data/train.json", "validation": "data/valid.json"}
     training_args = TrainingArguments(
         output_dir=args['output_dir'],
         label_names=['input_ids'],
@@ -91,8 +91,8 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         save_strategy=IntervalStrategy.STEPS,
         evaluation_strategy=IntervalStrategy.STEPS,
-        eval_steps=50,
-        save_steps=50,
+        eval_steps=5000,
+        save_steps=5000,
         learning_rate=0.003,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])

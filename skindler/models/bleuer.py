@@ -92,8 +92,8 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         save_strategy=IntervalStrategy.STEPS,
         evaluation_strategy=IntervalStrategy.STEPS,
-        eval_steps=500,
-        save_steps=500,
+        eval_steps=5_000,
+        save_steps=5_000,
         learning_rate=0.003,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])

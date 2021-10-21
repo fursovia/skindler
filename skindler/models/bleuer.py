@@ -71,7 +71,7 @@ class Bleuer(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './bl_logs',
+        'output_dir': './experiments/bleuer',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',
@@ -82,18 +82,18 @@ if __name__ == '__main__':
         output_dir=args['output_dir'],
         report_to=['wandb'],
         save_total_limit=10,
-        label_names=['input_ids'],
         dataloader_num_workers=4,
         per_device_train_batch_size=16,
         per_device_eval_batch_size=16,
-        eval_steps=5000,
-        save_steps=5000,
         do_train=True,
         do_eval=True,
         metric_for_best_model='eval_loss',
         load_best_model_at_end=True,
         save_strategy=IntervalStrategy.STEPS,
-        evaluation_strategy=IntervalStrategy.STEPS
+        evaluation_strategy=IntervalStrategy.STEPS,
+        eval_steps=50_000,
+        save_steps=50_000,
+        learning_rate=0.003,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names

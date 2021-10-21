@@ -9,7 +9,7 @@ from transformers import MarianMTModel, MarianTokenizer
 from typer import Typer
 
 from skindler import MODEL_NAME, MAX_LENGTH
-from skindler.models import AutoEncoder, Bleuer
+from skindler.models import MarianAutoEncoder, Bleuer
 
 
 MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
@@ -18,7 +18,7 @@ MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
 app = Typer()
 
 
-def attack(text: str, autoencoder: AutoEncoder, bleuer: Bleuer, epsilon: float = 0.25):
+def attack(text: str, autoencoder: MarianAutoEncoder, bleuer: Bleuer, epsilon: float = 0.25):
     inputs = bleuer.tokenizer(
         text,
         max_length=MAX_LENGTH,

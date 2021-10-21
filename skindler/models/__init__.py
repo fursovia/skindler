@@ -1,2 +1,2 @@
-from .autoencoder import AutoEncoder
 from .bleuer import Bleuer
+from .autoencoder import MarianAutoEncoder

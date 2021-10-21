@@ -76,9 +76,10 @@ if __name__ == '__main__':
         'text_column_name': 'en',
 
     }
-    data_files = {"train": "data/train.json", "validation": "data/valid.json"}
+    data_files = {"train": "data/train.json", "validation": "data/valid_small.json"}
     training_args = TrainingArguments(
         output_dir=args['output_dir'],
+        label_names=['input_ids'],
         report_to=['wandb'],
         save_total_limit=10,
         dataloader_num_workers=4,
@@ -90,8 +91,8 @@ if __name__ == '__main__':
         load_best_model_at_end=True,
         save_strategy=IntervalStrategy.STEPS,
         evaluation_strategy=IntervalStrategy.STEPS,
-        eval_steps=500,
-        save_steps=500,
+        eval_steps=50,
+        save_steps=50,
         learning_rate=0.003,
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])

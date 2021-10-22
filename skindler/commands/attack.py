@@ -64,8 +64,10 @@ def main(
 
     tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
     model = MarianMTModel.from_pretrained(MODEL_NAME).eval().to(device)
-    ae_path = str(Path(get_last_checkpoint(str(ae_dir))) / 'pytorch_model.bin')
-    bl_path = str(Path(get_last_checkpoint(str(bl_dir))) / 'pytorch_model.bin')
+    ae_dir = get_last_checkpoint(str(ae_dir)) or ae_dir
+    bl_dir = get_last_checkpoint(str(bl_dir)) or bl_dir
+    ae_path = str(Path(ae_dir) / 'pytorch_model.bin')
+    bl_path = str(Path(bl_dir) / 'pytorch_model.bin')
     autoencoder = MarianAutoEncoder(MODEL_NAME)
     autoencoder.load_state_dict(torch.load(ae_path))
     autoencoder.to(device)

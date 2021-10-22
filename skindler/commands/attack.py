@@ -45,10 +45,8 @@ def attack(
     loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
     loss.backward()
 
-    embeddings_grad = embeddings.grad.data
-    perturbed_embeddings = embeddings + epsilon * embeddings_grad.sign()
-
-    logits = autoencoder.forward_on_embeddings(perturbed_embeddings)
+    perturbed_embeddings = embeddings + epsilon * embeddings.grad.data.sign()
+    logits = autoencoder.get_logits(perturbed_embeddings)
     ids = logits.argmax(dim=-1)
     decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return decoded

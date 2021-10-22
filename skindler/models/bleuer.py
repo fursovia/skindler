@@ -19,28 +19,16 @@ class Bleuer(torch.nn.Module):
         self.linear2 = torch.nn.Linear(256, 1)
         self.loss = torch.nn.L1Loss()
 
-    def forward(
-        self,
-        input_ids=None,
-        bleu=None,
-        attention_mask=None,
-        head_mask=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
-    ):
+    def get_embeddings(self, input_ids, attention_mask=None):
         with torch.no_grad():
             outputs = self.encoder(
                 input_ids=input_ids,
                 attention_mask=attention_mask,
-                head_mask=head_mask,
-                inputs_embeds=inputs_embeds,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
             )
             embeddings = outputs.last_hidden_state
+        return embeddings
 
+    def get_logits(self, embeddings):
         embeddings = torch.cat(
             (
                 torch.sum(embeddings, dim=1),
@@ -52,20 +40,35 @@ class Bleuer(torch.nn.Module):
         embeddings = self.linear1(embeddings)
         embeddings = torch.relu(embeddings)
         logits = self.linear2(embeddings)
+        return logits
+
+    def forward(
+        self,
+        input_ids=None,
+        bleu=None,
+        attention_mask=None,
+        head_mask=None,
+        inputs_embeds=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        return_dict=None,
+    ):
+        embeddings = self.get_embeddings(input_ids, attention_mask)
+        logits = self.get_logits(embeddings)
 
         loss = None
         if bleu is not None:
             loss = self.loss(logits.view(-1), bleu.view(-1))
 
         if not return_dict:
-            output = (logits,) + outputs[2:]
+            output = (logits,)
             return ((loss,) + output) if loss is not None else output
 
         return SequenceClassifierOutput(
             loss=loss,
             logits=logits,
-            hidden_states=outputs.hidden_states,
-            attentions=outputs.attentions,
+            hidden_states=None,
+            attentions=None,
         )
 
 

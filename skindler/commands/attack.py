@@ -49,7 +49,7 @@ def main(dataset_path: Path, save_to: Path, epsilon: float = 0.25):
 
     tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
     model = MarianMTModel.from_pretrained(MODEL_NAME).eval().to(device)
-    autoencoder = AutoEncoder.load_from_checkpoint(str(MODELS_FOLDER / "encoder.ckpt"), map_location=device)
+    autoencoder = MarianAutoEncoder.load_from_checkpoint(str(MODELS_FOLDER / "encoder.ckpt"), map_location=device)
     bleuer = Bleuer.load_from_checkpoint(str(MODELS_FOLDER / "bleuer.ckpt"), map_location=device)
 
     data = []

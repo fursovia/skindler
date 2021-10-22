@@ -19,6 +19,20 @@ class MarianAutoEncoder(torch.nn.Module):
         self.dropout = torch.nn.Dropout(dropout)
         self.loss = torch.nn.CrossEntropyLoss()
 
+    def get_embeddings(self, input_ids, attention_mask=None):
+        with torch.no_grad():
+            outputs = self.encoder(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+            )
+            embeddings = outputs.last_hidden_state
+        return embeddings
+
+    def get_logits(self, embeddings):
+        embeddings = self.dropout(embeddings)
+        logits = self.linear(embeddings)
+        return logits
+
     def forward(
         self,
         input_ids=None,
@@ -30,19 +44,8 @@ class MarianAutoEncoder(torch.nn.Module):
         output_hidden_states=None,
         return_dict=None,
     ):
-        with torch.no_grad():
-            outputs = self.encoder(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                head_mask=head_mask,
-                inputs_embeds=inputs_embeds,
-                output_attentions=output_attentions,
-                output_hidden_states=output_hidden_states,
-            )
-            embeddings = outputs.last_hidden_state
-
-        embeddings = self.dropout(embeddings)
-        logits = self.linear(embeddings)
+        embeddings = self.get_embeddings(input_ids, attention_mask)
+        logits = self.get_logits(embeddings)
 
         loss = None
         if calculate_loss:
@@ -57,7 +60,7 @@ class MarianAutoEncoder(torch.nn.Module):
                 loss = self.loss(logits.view(-1, self.num_labels), input_ids.view(-1))
 
         if not return_dict:
-            output = (logits,) + outputs[2:]
+            output = (logits,)
             return ((loss,) + output) if loss is not None else output
 
         return TokenClassifierOutput(

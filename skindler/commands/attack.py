@@ -49,7 +49,7 @@ def attack(
     logits = autoencoder.get_logits(perturbed_embeddings)
     ids = logits.argmax(dim=-1)
     decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    return decoded
+    return decoded.replace('▁', ' ').strip()
 
 
 @app.command()

@@ -81,7 +81,7 @@ if __name__ == '__main__':
         'text_column_name': 'en',
 
     }
-    data_files = {"train": "data/train.json", "validation": "data/valid.json"}
+    data_files = {"train": "data/train.json", "validation": "data/valid_small.json"}
     training_args = TrainingArguments(
         output_dir=args['output_dir'],
         label_names=['input_ids'],

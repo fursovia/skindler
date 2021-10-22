@@ -29,8 +29,8 @@ def attack(text: str, autoencoder: MarianAutoEncoder, bleuer: Bleuer, epsilon: f
 
     with torch.no_grad():
         embeddings = bleuer.encoder(**inputs).last_hidden_state
-
     embeddings.requires_grad = True
+
     bleu = bleuer.forward_on_embeddings(embeddings, inputs["attention_mask"].unsqueeze(-1))
     loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0))
     loss.backward()

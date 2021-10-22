@@ -1,5 +1,6 @@
 import torch
 from transformers.models.marian.modeling_marian import MarianEncoder
+from transformers import MarianMTModel
 from transformers import MarianTokenizer, Trainer, default_data_collator
 from transformers.training_args import TrainingArguments
 from transformers.modeling_outputs import SequenceClassifierOutput
@@ -13,7 +14,7 @@ from skindler import MODEL_NAME, MAX_LENGTH
 class Bleuer(torch.nn.Module):
     def __init__(self, model_name: str, dropout: float = 0.1):
         super().__init__()
-        self.encoder = MarianEncoder.from_pretrained(model_name).eval()
+        self.encoder: MarianEncoder = MarianMTModel.from_pretrained(model_name).get_encoder().eval()
         for params in self.encoder.parameters():
             params.requires_grad = False
         self.dropout = torch.nn.Dropout(dropout)

@@ -1,4 +1,4 @@
-# skindler
+# Skindler
 
 
 ## Train your models!

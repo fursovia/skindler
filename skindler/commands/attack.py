@@ -19,7 +19,12 @@ app = Typer()
 
 
 def attack(
-        text: str, tokenizer: MarianTokenizer, autoencoder: MarianAutoEncoder, bleuer: Bleuer, epsilon: float = 0.25
+        text: str,
+        tokenizer: MarianTokenizer,
+        autoencoder: MarianAutoEncoder,
+        bleuer: Bleuer,
+        epsilon: float = 0.25,
+        device: torch.device = torch.device('cuda')
 ):
 
     for params in bleuer.parameters():
@@ -31,13 +36,13 @@ def attack(
         return_tensors='pt',
         padding=True,
         truncation=True
-    )
+    ).to(device)
 
     embeddings = autoencoder.get_embeddings(**inputs)
     embeddings.requires_grad = True
 
     bleu = bleuer.get_logits(embeddings)
-    loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0))
+    loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
     loss.backward()
 
     embeddings_grad = embeddings.grad.data
@@ -45,7 +50,7 @@ def attack(
 
     logits = autoencoder.forward_on_embeddings(perturbed_embeddings)
     ids = logits.argmax(dim=-1)
-    decoded = tokenizer.decode(ids[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+    decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return decoded
 
 
@@ -83,7 +88,9 @@ def main(
             ru_trans = example['ru_trans']
             # bleu = example['bleu']
 
-            en_attacked = attack(en, tokenizer=tokenizer, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon)
+            en_attacked = attack(
+                en, tokenizer=tokenizer, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon, device=device
+            )
 
             batch_text_inputs = tokenizer(
                 en_attacked,

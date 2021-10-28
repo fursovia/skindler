@@ -12,11 +12,12 @@ from skindler import MODEL_NAME, MAX_LENGTH
 
 
 class Bleuer(torch.nn.Module):
-    def __init__(self, model_name: str, dropout: float = 0.1):
+    def __init__(self, model_name: str, dropout: float = 0.1, epsilon: float = 0.1):
         super().__init__()
         self.encoder: MarianEncoder = MarianMTModel.from_pretrained(model_name).get_encoder().eval()
         for params in self.encoder.parameters():
             params.requires_grad = False
+        self.epsilon = epsilon
         self.dropout = torch.nn.Dropout(dropout)
         self.linear1 = torch.nn.Linear(512 * 2, 256)
         self.linear2 = torch.nn.Linear(256, 1)
@@ -29,6 +30,8 @@ class Bleuer(torch.nn.Module):
                 attention_mask=attention_mask,
             )
             embeddings = outputs.last_hidden_state
+        if self.training and self.epsilon:
+            embeddings = embeddings + self.epsilon * torch.randn_like(embeddings, device=embeddings.device).sign()
         return embeddings
 
     def get_logits(self, embeddings):

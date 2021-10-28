@@ -80,7 +80,7 @@ class MarianAutoEncoder(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './experiments/ae',
+        'output_dir': './experiments/ae_noisy',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',

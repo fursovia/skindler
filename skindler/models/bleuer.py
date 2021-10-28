@@ -80,7 +80,7 @@ class Bleuer(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './experiments/bleuer',
+        'output_dir': './experiments/bleuer_noisy',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',

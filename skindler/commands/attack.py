@@ -38,15 +38,19 @@ def attack(
         truncation=True
     ).to(device)
 
+    # shape [1, num_tokens, 512]
     embeddings = autoencoder.get_embeddings(**inputs)
     embeddings.requires_grad = True
 
+    # shape [1, 1] [0.2 L1 loss on validation set]
     bleu = bleuer.get_logits(embeddings)
     loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
     loss.backward()
 
     perturbed_embeddings = embeddings + epsilon * embeddings.grad.data.sign()
+    # shape [1, num_tokens, vocab_size] [~0.02 cross entropy loss]
     logits = autoencoder.get_logits(perturbed_embeddings)
+    # shape [1, num_tokens]
     ids = logits.argmax(dim=-1)
     decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return decoded.replace('▁', ' ').strip()

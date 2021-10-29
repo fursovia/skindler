@@ -4,6 +4,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSe
 from skindler import MODEL_NAME, DATASET_NAME, MAX_LENGTH
 from skindler.modules.metrics import ALL_METRICS
 
+
 def prepare_dataloader(tokenizer):
     raw_datasets = load_dataset(*DATASET_NAME)
     del raw_datasets['train']
@@ -59,6 +60,7 @@ def prepare_model_and_tokenizer(device):
     model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
     model.eval()
     return model, tokenizer
+
 
 def count_metrics(one_list, second_list):
     result = {}

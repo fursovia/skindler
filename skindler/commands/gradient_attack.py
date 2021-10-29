@@ -1,24 +1,24 @@
 import json
-from argparse import ArgumentParser
 from pathlib import Path
 
 import pandas as pd
 import torch
 from tqdm import tqdm
+from typer import Typer
 
 from skindler import SENTENCES_TO_ATTACK
 from skindler.models import GradientGuidedSearchStrategy
 from skindler.modules.gradient_guided_utils import prepare_dataloader, prepare_model_and_tokenizer, count_metrics
 
+app = Typer()
 
 
-if __name__ == '__main__':
-    parser = ArgumentParser()
-    parser.add_argument("--threshold", default=0.75, type=float)
-    parser.add_argument("--max_iteration", default=100, type=int)
-    parser.add_argument("--experiment_folder", default=Path('experiment/threshold_0.75/'), type=Path)
-    args = parser.parse_args()
-
+@app.command()
+def main(
+        threshold: float = 0.75,
+        max_iteration: int = 100,
+        experiment_folder=Path('experiment/threshold_0.75/')
+):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
     model, tokenizer = prepare_model_and_tokenizer(device)

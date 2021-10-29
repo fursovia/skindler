@@ -1,8 +1,8 @@
-from copy import copy
 from typing import Dict, Any, List
 
-import torch
 import numpy as np
+import torch
+from copy import copy
 from tqdm import tqdm
 
 extracted_grads = []
@@ -22,7 +22,8 @@ def second_letter_is_uppercase(word: str) -> bool:
 
 
 class GradientGuidedSearchStrategy:
-    def __init__(self, model, tokenizer, device: torch.device = torch.device('cuda'), threshold: float = 0.7, max_iteration: int = 100):
+    def __init__(self, model, tokenizer, device: torch.device = torch.device('cuda'), threshold: float = 0.7,
+                 max_iteration: int = 100):
 
         self.model = model
         self.tokenizer = tokenizer

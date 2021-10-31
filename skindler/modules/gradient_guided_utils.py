@@ -1,11 +1,12 @@
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSeq2Seq
+from datasets import load_dataset
 
 from skindler import MODEL_NAME, DATASET_NAME, MAX_LENGTH
 from skindler.modules.metrics import ALL_METRICS
 
 
-def prepare_dataloader(tokenizer):
+def prepare_dataloader(model, tokenizer):
     raw_datasets = load_dataset(*DATASET_NAME)
     del raw_datasets['train']
 

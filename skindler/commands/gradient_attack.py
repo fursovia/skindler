@@ -8,6 +8,7 @@ from typer import Typer
 
 from skindler import SENTENCES_TO_ATTACK
 from skindler.models import GradientGuidedSearchStrategy
+from skindler.modules.utils import AttackOutput
 from skindler.modules.gradient_guided_utils import prepare_dataloader, prepare_model_and_tokenizer, count_metrics
 
 app = Typer()
@@ -19,13 +20,17 @@ def main(
         max_iteration: int = 100,
         experiment_folder=Path('experiment/threshold_0.75/')
 ):
+    if not Path(experiment_folder).exists():
+        Path(experiment_folder).mkdir()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-
+    
     model, tokenizer = prepare_model_and_tokenizer(device)
-    _, test_dataloader = prepare_dataloader(tokenizer)
+    print('loaded model')
+    _, test_dataloader = prepare_dataloader(model, tokenizer)
+    print('loaded data')
 
-    attacker = GradientGuidedSearchStrategy(model, tokenizer, threshold=args.threshold,
-                                            max_iteration=args.max_iteration)
+    attacker = GradientGuidedSearchStrategy(model, tokenizer, threshold=threshold,
+                                            max_iteration=max_iteration)
 
     result = attacker.attack_dataset(test_dataloader, SENTENCES_TO_ATTACK, verbose=False)
     x_perturbed_with_brackets = [i[-1] for i in result]
@@ -56,45 +61,60 @@ def main(
         y.append(tokenizer.decode(batch['labels'][0].tolist()))
         y_without_attack.append(translated)
     x = [i.replace("▁", " ") for i in x]
+    
+    attack_output = [
+        AttackOutput(
+            x = x_,
+            y = y_,
+            x_attacked = x_att,
+            y_trans = y_trans,
+            y_trans_attacked = y_trans_att
+        ) for x_, y_, x_att, y_trans, y_trans_att in zip(x, y, x_perturbed, y_without_attack, y_attacked)
+    ]
+    for a_o in attack_output:
+        a_o.save_as_json(Path(experiment_folder) / 'attack_output')
+    
+#     # save everything
 
-    # save everything
+#     with open(f"{str(args.experiment_folder)}/x.json", 'w') as f:
+#         json.dump(x, f)
 
-    with open(f"{str(args.experiment_folder)}/x.json", 'w') as f:
-        json.dump(x, f)
+#     with open(f"{str(args.experiment_folder)}/x_perturbed_with_brackets.json", 'w') as f:
+#         json.dump(x_perturbed_with_brackets, f)
 
-    with open(f"{str(args.experiment_folder)}/x_perturbed_with_brackets.json", 'w') as f:
-        json.dump(x_perturbed_with_brackets, f)
+#     with open(f"{str(args.experiment_folder)}/x_perturbed.json", 'w') as f:
+#         json.dump(x_perturbed, f)
 
-    with open(f"{str(args.experiment_folder)}/x_perturbed.json", 'w') as f:
-        json.dump(x_perturbed, f)
+#     with open(f"{str(args.experiment_folder)}/y.json", 'w') as f:
+#         json.dump(y, f)
 
-    with open(f"{str(args.experiment_folder)}/y.json", 'w') as f:
-        json.dump(y, f)
+#     with open(f"{str(args.experiment_folder)}/y_without_attack.json", 'w') as f:
+#         json.dump(y_without_attack, f)
 
-    with open(f"{str(args.experiment_folder)}/y_without_attack.json", 'w') as f:
-        json.dump(y_without_attack, f)
+#     with open(f"{str(args.experiment_folder)}/y_attacked.json", 'w') as f:
+#         json.dump(y_attacked, f)
 
-    with open(f"{str(args.experiment_folder)}/y_attacked.json", 'w') as f:
-        json.dump(y_attacked, f)
+#     # count metrics
 
-    # count metrics
+#     orig_translate_metrics = count_metrics(y, y_without_attack)
+#     attack_translate_metrics = count_metrics(y, y_attacked)
+#     x_metrics = count_metrics(x, x_perturbed)
 
-    orig_translate_metrics = count_metrics(y, y_without_attack)
-    attack_translate_metrics = count_metrics(y, y_attacked)
-    x_metrics = count_metrics(x, x_perturbed)
+#     table = {'orig.input': x, 'pert.input': x_perturbed_with_brackets,
+#              'labels': y, 'orig.translation': y_without_attack, 'pert.translation': y_attacked}
 
-    table = {'orig.input': x, 'pert.input': x_perturbed_with_brackets,
-             'labels': y, 'orig.translation': y_without_attack, 'pert.translation': y_attacked}
+#     for metric_name, metric_value in orig_translate_metrics.items():
+#         table[f"orig.translation_{metric_name}"] = metric_value
 
-    for metric_name, metric_value in orig_translate_metrics.items():
-        table[f"orig.translation_{metric_name}"] = metric_value
+#     for metric_name, metric_value in attack_translate_metrics.items():
+#         table[f"attacked.translation_{metric_name}"] = metric_value
 
-    for metric_name, metric_value in attack_translate_metrics.items():
-        table[f"attacked.translation_{metric_name}"] = metric_value
+#     for metric_name, metric_value in x_metrics.items():
+#         table[f"x_{metric_name}"] = metric_value
 
-    for metric_name, metric_value in x_metrics.items():
-        table[f"x_{metric_name}"] = metric_value
+#     table = pd.DataFrame(table)
 
-    table = pd.DataFrame(table)
+#     table.to_csv(f"{str(args.experiment_folder)}/table.csv")
 
-    table.to_csv(f"{str(args.experiment_folder)}/table.csv")
+if __name__ == "__main__":
+    app()

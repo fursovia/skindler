@@ -24,6 +24,7 @@ def main(
 
     orig_translate_metrics = count_metrics(y, y_trans)
     attack_translate_metrics = count_metrics(y, y_trans_attacked)
+    translation_diff_metrics = count_metrics(y_trans, y_trans_attacked)
     x_metrics = count_metrics(x, x_attacked)
 
     table = {'x': x, 'y': y,
@@ -34,9 +35,12 @@ def main(
 
     for metric_name, metric_value in attack_translate_metrics.items():
         table[f"attacked.translation_{metric_name}"] = metric_value
+       
+    for metric_name, metric_value in translation_diff_metrics.items():
+        table[f"diff_translation_{metric_name}"] = metric_value
 
     for metric_name, metric_value in x_metrics.items():
-        table[f"x_{metric_name}"] = metric_value
+        table[f"diff_x_{metric_name}"] = metric_value
 
     table = pd.DataFrame(table)
     table.to_csv(str(save_metrics_path))

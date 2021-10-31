@@ -9,7 +9,7 @@ from typer import Typer
 from skindler import SENTENCES_TO_ATTACK
 from skindler.models import GradientGuidedSearchStrategy
 from skindler.modules.utils import AttackOutput
-from skindler.modules.gradient_guided_utils import prepare_dataloader, prepare_model_and_tokenizer, count_metrics
+from skindler.modules.gradient_guided_utils import prepare_dataloader, prepare_model_and_tokenizer
 
 app = Typer()
 
@@ -18,7 +18,7 @@ app = Typer()
 def main(
         threshold: float = 0.75,
         max_iteration: int = 100,
-        experiment_folder=Path('experiment/threshold_0.75/')
+        experiment_folder: Path = Path('experiment/threshold_0.75/')
 ):
     if not Path(experiment_folder).exists():
         Path(experiment_folder).mkdir()
@@ -88,28 +88,6 @@ def main(
             y_attacked)]
     for a_o in attack_output:
         a_o.save_as_json(Path(experiment_folder) / 'attack_output')
-
-#     # count metrics
-
-#     orig_translate_metrics = count_metrics(y, y_without_attack)
-#     attack_translate_metrics = count_metrics(y, y_attacked)
-#     x_metrics = count_metrics(x, x_perturbed)
-
-#     table = {'orig.input': x, 'pert.input': x_perturbed_with_brackets,
-#              'labels': y, 'orig.translation': y_without_attack, 'pert.translation': y_attacked}
-
-#     for metric_name, metric_value in orig_translate_metrics.items():
-#         table[f"orig.translation_{metric_name}"] = metric_value
-
-#     for metric_name, metric_value in attack_translate_metrics.items():
-#         table[f"attacked.translation_{metric_name}"] = metric_value
-
-#     for metric_name, metric_value in x_metrics.items():
-#         table[f"x_{metric_name}"] = metric_value
-
-#     table = pd.DataFrame(table)
-
-#     table.to_csv(f"{str(args.experiment_folder)}/table.csv")
 
 
 if __name__ == "__main__":

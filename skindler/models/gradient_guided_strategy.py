@@ -22,8 +22,13 @@ def second_letter_is_uppercase(word: str) -> bool:
 
 
 class GradientGuidedSearchStrategy:
-    def __init__(self, model, tokenizer, device: torch.device = torch.device('cuda'), threshold: float = 0.7,
-                 max_iteration: int = 100):
+    def __init__(
+            self,
+            model,
+            tokenizer,
+            device: torch.device = torch.device('cuda'),
+            threshold: float = 0.7,
+            max_iteration: int = 100):
 
         self.model = model
         self.tokenizer = tokenizer
@@ -32,13 +37,18 @@ class GradientGuidedSearchStrategy:
         self.model.model.shared.register_backward_hook(extract_grad_hook)
         self.indexes_starting_with_underscore = np.array(
             [i.startswith('▁') for i in list(tokenizer.get_vocab().keys())])
-        self.indexes_first_uppercase = np.array([i[0].isupper() for i in list(tokenizer.get_vocab().keys())])
+        self.indexes_first_uppercase = np.array(
+            [i[0].isupper() for i in list(tokenizer.get_vocab().keys())])
         self.indexes_second_uppercase = np.array(
             [second_letter_is_uppercase(i) for i in list(tokenizer.get_vocab().keys())])
         self.threshold = threshold
         self.max_iteration = max_iteration
 
-    def attack_dataset(self, dataloader, attack_first_n: int = -1, verbose=False) -> List[Any]:
+    def attack_dataset(
+            self,
+            dataloader,
+            attack_first_n: int = -1,
+            verbose=False) -> List[Any]:
         result = list()
         for batch_id, batch in enumerate(tqdm(dataloader)):
             if batch_id + 1 == attack_first_n:
@@ -57,16 +67,20 @@ class GradientGuidedSearchStrategy:
         batch = {i: j.to(self.device) for i, j in batch.items()}
 
         losses_history = []
-        input_history = [self.get_input_text(batch['input_ids'], self.tokenizer)]
+        input_history = [
+            self.get_input_text(
+                batch['input_ids'],
+                self.tokenizer)]
         if verbose:
             print(input_history[0])
         already_flipped = [0, -1]  # not replacing first and last tokens
-        stop_tokens = [self.tokenizer.convert_tokens_to_ids(i[1]) for i in self.tokenizer.special_tokens_map.items()]
+        stop_tokens = [self.tokenizer.convert_tokens_to_ids(
+            i[1]) for i in self.tokenizer.special_tokens_map.items()]
 
         iteration = 0
         while iteration < self.max_iteration:
             iteration += 1
-            global extracted_grads;
+            global extracted_grads
             extracted_grads = []
             self.model.zero_grad()
 
@@ -91,28 +105,36 @@ class GradientGuidedSearchStrategy:
             '''
             input_gradient = input_gradient[0][position].view(1, 1, -1)
             old_token_id = batch['input_ids'][0][position]
-            embedding_of_old_token = self.model.model.shared(torch.tensor(old_token_id.view(1, -1)))
-            cosine_distances = self.get_cosine_dist(embedding_weight, embedding_of_old_token)
+            embedding_of_old_token = self.model.model.shared(
+                torch.tensor(old_token_id.view(1, -1)))
+            cosine_distances = self.get_cosine_dist(
+                embedding_weight, embedding_of_old_token)
 
-            new_embed_dot_grad = torch.einsum("bij,kj->bik", (input_gradient, embedding_weight))
-            prev_embed_dot_grad = torch.einsum("bij,bij->bi", (input_gradient, embedding_of_old_token)).unsqueeze(-1)
+            new_embed_dot_grad = torch.einsum(
+                "bij,kj->bik", (input_gradient, embedding_weight))
+            prev_embed_dot_grad = torch.einsum(
+                "bij,bij->bi", (input_gradient, embedding_of_old_token)).unsqueeze(-1)
             difference = new_embed_dot_grad - prev_embed_dot_grad
             difference = difference.detach().cpu().reshape(-1)
 
             '''
             make replacement
             '''
-            difference[
-                cosine_distances < self.threshold] = -np.inf  # out only tokens which have similar embedding due to cosine embedding
-            difference[batch['input_ids'][0][position].item()] = -np.inf  # don't replace with the same token
-            old_token = self.tokenizer.convert_ids_to_tokens([old_token_id.item()])[0]
-            similar_token = self.get_similar_token(old_token)  # don't replace with the same token(upper\lower case)
+            difference[cosine_distances < self.threshold] = - \
+                np.inf  # out only tokens which have similar embedding due to cosine embedding
+            # don't replace with the same token
+            difference[batch['input_ids'][0][position].item()] = -np.inf
+            old_token = self.tokenizer.convert_ids_to_tokens(
+                [old_token_id.item()])[0]
+            # don't replace with the same token(upper\lower case)
+            similar_token = self.get_similar_token(old_token)
             if similar_token in self.tokenizer_vocab:
                 difference[self.tokenizer_vocab[similar_token]] = -np.inf
             for i in stop_tokens:
                 difference[i] = -np.inf
 
-            if old_token.startswith('▁'):  # replace _... with _... / ... with ...
+            # replace _... with _... / ... with ...
+            if old_token.startswith('▁'):
                 difference[~self.indexes_starting_with_underscore] = -np.inf
                 if len(old_token) > 1:
                     if old_token[1].isupper():
@@ -134,7 +156,8 @@ class GradientGuidedSearchStrategy:
                 print(
                     iteration,
                     position,
-                    self.tokenizer.decode([batch['input_ids'][0][position].item()]),
+                    self.tokenizer.decode(
+                        [batch['input_ids'][0][position].item()]),
                     self.tokenizer.decode([new_token])
                 )
 
@@ -143,12 +166,20 @@ class GradientGuidedSearchStrategy:
                 already_flipped = already_flipped[:-1]
                 break
             changed_input[position] = new_token
-            batch['input_ids'] = torch.tensor(changed_input).unsqueeze(0).to(self.device)
+            batch['input_ids'] = torch.tensor(
+                changed_input).unsqueeze(0).to(self.device)
 
             losses_history.append(output['loss'].item())
-            input_history.append(self.get_input_text(batch['input_ids'], self.tokenizer))
+            input_history.append(
+                self.get_input_text(
+                    batch['input_ids'],
+                    self.tokenizer))
 
-        input_history.append(self.get_input_text_flipped(batch['input_ids'], self.tokenizer, already_flipped))
+        input_history.append(
+            self.get_input_text_flipped(
+                batch['input_ids'],
+                self.tokenizer,
+                already_flipped))
         if verbose:
             print(input_history[-1])
         return input_history
@@ -189,9 +220,12 @@ class GradientGuidedSearchStrategy:
         return tokenizer.decode(labels.tolist()[0]).replace("▁", " ")
 
     @staticmethod
-    def get_cosine_dist(all_embeddings: torch.tensor, embedding: torch.tensor) -> torch.tensor:
+    def get_cosine_dist(
+            all_embeddings: torch.tensor,
+            embedding: torch.tensor) -> torch.tensor:
         embedding = embedding.view(-1)
-        return torch.einsum('kh,h->k', all_embeddings, embedding) / (embedding.norm(2) * all_embeddings.norm(2, dim=1))
+        return torch.einsum('kh,h->k', all_embeddings, embedding) / \
+            (embedding.norm(2) * all_embeddings.norm(2, dim=1))
 
     @staticmethod
     def get_similar_token(old_token: str) -> str:
@@ -199,9 +233,11 @@ class GradientGuidedSearchStrategy:
             return old_token
         if old_token.startswith('▁'):
             if old_token[1].isupper():
-                similar_token = old_token[0] + old_token[1].lower() + old_token[2:]
+                similar_token = old_token[0] + \
+                    old_token[1].lower() + old_token[2:]
             else:
-                similar_token = old_token[0] + old_token[1].upper() + old_token[2:]
+                similar_token = old_token[0] + \
+                    old_token[1].upper() + old_token[2:]
         else:
             if old_token[0].isupper():
                 similar_token = old_token[0].lower() + old_token[1:]

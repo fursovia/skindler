@@ -3,7 +3,6 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, DataCollatorForSe
 from datasets import load_dataset
 
 from skindler import MODEL_NAME, DATASET_NAME, MAX_LENGTH
-from skindler.modules.metrics import ALL_METRICS
 
 
 def prepare_dataloader(model, tokenizer):
@@ -21,10 +20,18 @@ def prepare_dataloader(model, tokenizer):
         inputs = [ex[source_lang] for ex in examples["translation"]]
         targets = [ex[target_lang] for ex in examples["translation"]]
         inputs = [prefix + inp for inp in inputs]
-        model_inputs = tokenizer(inputs, max_length=max_target_length, padding=padding, truncation=True)
+        model_inputs = tokenizer(
+            inputs,
+            max_length=max_target_length,
+            padding=padding,
+            truncation=True)
 
         with tokenizer.as_target_tokenizer():
-            labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
+            labels = tokenizer(
+                targets,
+                max_length=max_target_length,
+                padding=padding,
+                truncation=True)
 
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
@@ -51,7 +58,10 @@ def prepare_dataloader(model, tokenizer):
     valid_dataloader = DataLoader(
         valid_dataset, shuffle=True, collate_fn=data_collator, batch_size=1
     )
-    test_dataloader = DataLoader(test_dataset, collate_fn=data_collator, batch_size=1)
+    test_dataloader = DataLoader(
+        test_dataset,
+        collate_fn=data_collator,
+        batch_size=1)
 
     return valid_dataloader, test_dataloader
 
@@ -61,13 +71,3 @@ def prepare_model_and_tokenizer(device):
     model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME).to(device)
     model.eval()
     return model, tokenizer
-
-
-def count_metrics(one_list, second_list):
-    result = {}
-    for metric in ['bleu', 'meteor', 'chrf', 'bertscore',
-                   'calculate_wer_corpus', 'calculate_paraphrase_similarity']:
-        result[metric] = ALL_METRICS[metric](one_list, second_list)
-    result['wer'] = result.pop('calculate_wer_corpus')
-    result['par.similarity'] = result.pop('calculate_paraphrase_similarity')
-    return result

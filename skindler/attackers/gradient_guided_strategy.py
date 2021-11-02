@@ -21,7 +21,7 @@ def second_letter_is_uppercase(word: str) -> bool:
         return False
 
 
-class GradientGuidedSearchStrategy:
+class GradientGuidedAttack:
     def __init__(
             self,
             model,

@@ -2,7 +2,6 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
 from typing import List
-from skindler.modules.metrics import ALL_METRICS
 
 
 @dataclass
@@ -35,13 +34,3 @@ def load_attacks(path: Path) -> List[AttackOutput]:
         for line in f:
             attacks.append(AttackOutput(**json.loads(line)))
     return attacks
-
-
-def count_metrics(one_list, second_list):
-    result = {}
-    for metric in ['bleu', 'meteor', 'chrf', 'bertscore',
-                   'calculate_wer_corpus', 'calculate_paraphrase_similarity']:
-        result[metric] = ALL_METRICS[metric](one_list, second_list)
-    result['wer'] = result.pop('calculate_wer_corpus')
-    result['par.similarity'] = result.pop('calculate_paraphrase_similarity')
-    return result

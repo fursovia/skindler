@@ -6,17 +6,19 @@ from abc import ABC
 from allenai_common import Registrable
 from dataclasses_json import dataclass_json
 
+
 @dataclass
 class AttackerInput:
     x: str
     y: str = None
-    
+
     def __repr__(self) -> str:
         s = f"""
         Orig. sentence: {self.original_text}
         Orig. translation: {self.y if self.y is not None else "translation is not available"}
         """
         return s
+
 
 @dataclass_json
 @dataclass
@@ -45,6 +47,7 @@ def load_attacks(path: Path) -> List[AttackerOutput]:
             attacks.append(AttackerOutput(**json.loads(line)))
     return attacks
 
+
 class Attacker(ABC, Registrable):
 
     def __init__(self, device: int = -1,) -> None:
@@ -54,8 +57,10 @@ class Attacker(ABC, Registrable):
     def attack(self, data_to_attack: AttackerInput) -> AttackerOutput:
         pass
 
-    def move_to_device(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def move_to_device(
+            self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         if self.device != -1:
-            return {key: val.to(device=self.device) if isinstance(val, torch.Tensor) else val for key, val in input.items()}
+            return {key: val.to(device=self.device) if isinstance(
+                val, torch.Tensor) else val for key, val in input.items()}
         else:
             return inputs

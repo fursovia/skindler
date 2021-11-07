@@ -17,7 +17,9 @@ def attack(
         config_path: str,
         data_path: str = None,
         out_dir: str = None,
-        samples: int = typer.Option(SENTENCES_TO_ATTACK, help="Number of samples")
+        samples: int = typer.Option(
+            SENTENCES_TO_ATTACK,
+            help="Number of samples")
 ):
 
     params = Params.from_file(config_path)
@@ -29,9 +31,9 @@ def attack(
         x = [ex[source_lang] for ex in data["translation"]]
         y = [ex[target_lang] for ex in data["translation"]]
         data = [(x_, y_) for (x, y) in zip(x, y)]
-    except:
+    except BaseException:
         data = load_jsonlines(data_path)[:samples]
-        
+
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
 
@@ -49,7 +51,10 @@ def attack(
             try:
                 adversarial_output = attacker.attack(inputs)
             except Exception as e:
-                error_message = typer.style(f">>> Failed to attack because {e}", fg=typer.colors.RED, bold=True)
+                error_message = typer.style(
+                    f">>> Failed to attack because {e}",
+                    fg=typer.colors.RED,
+                    bold=True)
                 typer.echo(error_message)
                 adversarial_output = AttackerOutput(
                     data=inputs, adversarial_data=inputs, probability=1.0, adversarial_probability=1.0
@@ -59,9 +64,11 @@ def attack(
             adv_text = getattr(adversarial_output, 'x_attacked')
 
             if str(initial_text) != adv_text:
-                adv_text = typer.style(adv_text, fg=typer.colors.GREEN, bold=True)
+                adv_text = typer.style(
+                    adv_text, fg=typer.colors.GREEN, bold=True)
             else:
-                adv_text = typer.style(adv_text, fg=typer.colors.RED, bold=True)
+                adv_text = typer.style(
+                    adv_text, fg=typer.colors.RED, bold=True)
 
             message = f"[{i} / {len(data)}] \n{initial_text}\n{adv_text}\n"
             typer.echo(message)

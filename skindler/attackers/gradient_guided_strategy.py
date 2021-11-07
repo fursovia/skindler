@@ -22,6 +22,7 @@ def second_letter_is_uppercase(word: str) -> bool:
     else:
         return False
 
+
 @Attacker.register("gradient_attack")
 class GradientGuidedAttack:
     def __init__(
@@ -32,11 +33,12 @@ class GradientGuidedAttack:
             threshold: float = 0.75,
             max_iteration: int = 100):
         super().__init__(device)
-        
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model_name).to(self.device)
+
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(
+            model_name).to(self.device)
         self.model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        
+
         self.tokenizer_vocab = tokenizer.get_vocab()
         self.model.model.shared.register_backward_hook(extract_grad_hook)
         self.indexes_starting_with_underscore = np.array(
@@ -63,21 +65,23 @@ class GradientGuidedAttack:
         return result
 
     def attack(self,
-                     data_to_attack: AttackerInput,
-                     verbose=False
-                     ) -> AttackerOutput:
-        
+               data_to_attack: AttackerInput,
+               verbose=False
+               ) -> AttackerOutput:
+
         attack_input = self.prepare_attack_input(data_to_attack)
         attack_input = self.move_to_device(attack_input)
         data_attacked = self.gradient_attack(attack_input)
-        attack_output = self.prepare_attack_output(data_to_attack, attack_input, data_attacked)
+        attack_output = self.prepare_attack_output(
+            data_to_attack, attack_input, data_attacked)
         return attack_output
-    
-    def prepare_attack_input(self, data_to_attack: AttackerInput) -> Dict[str, Any]:
+
+    def prepare_attack_input(
+            self, data_to_attack: AttackerInput) -> Dict[str, Any]:
         attack_input = tokenizer(
             data_to_attack.x,
             max_length=MAX_LENGTH,
-            padding = True,
+            padding=True,
             truncation=True)
 
         with tokenizer.as_target_tokenizer():
@@ -86,31 +90,31 @@ class GradientGuidedAttack:
                 max_length=MAX_LENGTH,
                 padding=True,
                 truncation=True)['input_ids']
-            
+
         return attack_input
-        
-    def prepare_attack_output(self, data_to_attack: AttackerInput, attack_input: Dict[str, Any], data_attacked: str) -> AttackerOutput:
-        
+
+    def prepare_attack_output(self, data_to_attack: AttackerInput,
+                              attack_input: Dict[str, Any], data_attacked: str) -> AttackerOutput:
+
         with torch.no_grad():
             translated = model.generate(attack_input['input_ids'])
             y_trans = tokenizer.decode(translated[0], skip_special_tokens=True)
             translated = model.generate(torch.tensor(
-                    tokenizer.encode(data_attacked)).unsqueeze(0).to(self.device))
+                tokenizer.encode(data_attacked)).unsqueeze(0).to(self.device))
             y_trans_attacked = tokenizer.decode(
                 translated[0], skip_special_tokens=True)
-        
-        
+
         output = AttackerOutput(
-            x = data_to_attack.x,
-            y = data_to_attack.y
-            x_attacked = data_attacked,
-            y_trans = y_trans,
-            y_trans_attacked = y_trans_attacked
+            x=data_to_attack.x,
+            y=data_to_attack.y
+            x_attacked=data_attacked,
+            y_trans=y_trans,
+            y_trans_attacked=y_trans_attacked
         )
         return output
-    
+
     def gradient_attack(self, attack_input: Dict[str, Any]) -> str:
-    
+
         batch = {i: j.to(self.device) for i, j in batch.items()}
 
         losses_history = []

@@ -1,123 +1,71 @@
 from pathlib import Path
-import json
-from tqdm import tqdm
+from datetime import datetime
 
-import torch
-import torch.nn.functional
-from transformers import MarianMTModel, MarianTokenizer
-from transformers.trainer_utils import get_last_checkpoint
-from typer import Typer
+from allenai_common import Params
+import typer
+import jsonlines
+from datasets import load_dataset
 
-from skindler import MODEL_NAME, MAX_LENGTH
-from skindler.models import MarianAutoEncoder, Bleuer
+from skindler.attackers import AttackerInput, AttackerOutput, Attacker
+from skindler import SENTENCES_TO_ATTACK, DATASET_NAME, SENTENCES_TO_ATTACK
 
-
-MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
-
-
-app = Typer()
-
-
-def attack(
-        text: str,
-        tokenizer: MarianTokenizer,
-        autoencoder: MarianAutoEncoder,
-        bleuer: Bleuer,
-        epsilon: float = 0.25,
-        device: torch.device = torch.device('cuda')
-):
-
-    for params in bleuer.parameters():
-        params.grad = None
-
-    inputs = tokenizer(
-        text,
-        max_length=MAX_LENGTH,
-        return_tensors='pt',
-        padding=True,
-        truncation=True
-    ).to(device)
-
-    embeddings = autoencoder.get_embeddings(**inputs)
-    embeddings.requires_grad = True
-
-    bleu = bleuer.get_logits(embeddings)
-    loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
-    loss.backward()
-
-    perturbed_embeddings = embeddings + epsilon * embeddings.grad.data.sign()
-    logits = autoencoder.get_logits(perturbed_embeddings)
-    ids = logits.argmax(dim=-1)
-    decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    return decoded.replace('▁', ' ').strip()
+app = typer.Typer()
 
 
 @app.command()
-def main(
-        dataset_path: Path,
-        ae_dir: Path = Path('experiments/ae'),
-        bl_dir: Path = Path('experiments/bleuer'),
-        save_to: Path = Path('results.json'),
-        epsilon: float = 0.25,
+def attack(
+        config_path: str,
+        data_path: str = None,
+        out_dir: str = None,
+        samples: int = typer.Option(SENTENCES_TO_ATTACK, help="Number of samples")
 ):
-    device = torch.device("cuda")
 
-    tokenizer = MarianTokenizer.from_pretrained(MODEL_NAME)
-    model = MarianMTModel.from_pretrained(MODEL_NAME).eval().to(device)
-    ae_dir = get_last_checkpoint(str(ae_dir)) or ae_dir
-    bl_dir = get_last_checkpoint(str(bl_dir)) or bl_dir
-    ae_path = str(Path(ae_dir) / 'pytorch_model.bin')
-    bl_path = str(Path(bl_dir) / 'pytorch_model.bin')
-    autoencoder = MarianAutoEncoder(MODEL_NAME)
-    autoencoder.load_state_dict(torch.load(ae_path))
-    autoencoder.to(device)
+    params = Params.from_file(config_path)
+    attacker = Attacker.from_params(params["attacker"])
+    try:
+        data = load_dataset(*DATASET_NAME)['test'][:samples]
+        source_lang = 'en'
+        target_lang = 'ru'
+        x = [ex[source_lang] for ex in data["translation"]]
+        y = [ex[target_lang] for ex in data["translation"]]
+        data = [(x_, y_) for (x, y) in zip(x, y)]
+    except:
+        data = load_jsonlines(data_path)[:samples]
+        
+    out_dir = Path(out_dir)
+    out_dir.mkdir(exist_ok=True, parents=True)
 
-    bleuer = Bleuer(MODEL_NAME)
-    bleuer.load_state_dict(torch.load(bl_path))
-    bleuer.to(device)
+    params["out_dir"] = str(out_dir)
+    config_path = out_dir / "config.json"
+    params.to_file(str(config_path))
+    output_path = out_dir / "data.json"
 
-    data = []
-    with dataset_path.open() as f:
-        for line in f.readlines():
-            data.append(json.loads(line.strip()))
+    typer.secho(f"Saving results to {output_path}...", fg="green")
+    with jsonlines.open(output_path, "w") as writer:
+        for i, sample in enumerate(data):
+            inputs = AttackerInput(sample)
 
-    with save_to.open('w') as f:
-        for example in tqdm(data):
-            en = example['en']
-            ru = example['ru']
-            ru_trans = example['ru_trans']
-            # bleu = example['bleu']
+            typer.echo(getattr(inputs, text_field))
+            try:
+                adversarial_output = attacker.attack(inputs)
+            except Exception as e:
+                error_message = typer.style(f">>> Failed to attack because {e}", fg=typer.colors.RED, bold=True)
+                typer.echo(error_message)
+                adversarial_output = AttackerOutput(
+                    data=inputs, adversarial_data=inputs, probability=1.0, adversarial_probability=1.0
+                )
 
-            en_attacked = attack(
-                en, tokenizer=tokenizer, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon, device=device
-            )
+            initial_text = getattr(adversarial_output, 'x')
+            adv_text = getattr(adversarial_output, 'x_attacked')
 
-            batch_text_inputs = tokenizer(
-                en_attacked,
-                max_length=MAX_LENGTH,
-                return_tensors='pt',
-                padding=True,
-                truncation=True
-            )
-            batch_text_inputs.to(device)
+            if str(initial_text) != adv_text:
+                adv_text = typer.style(adv_text, fg=typer.colors.GREEN, bold=True)
+            else:
+                adv_text = typer.style(adv_text, fg=typer.colors.RED, bold=True)
 
-            output = model.generate(**batch_text_inputs)
-            translations = tokenizer.batch_decode(
-                output, skip_special_tokens=True, clean_up_tokenization_spaces=True
-            )[0]
-
-            f.write(
-                json.dumps(
-                    {
-                        'en': en,
-                        'ru': ru,
-                        'ru_trans': ru_trans,
-                        'en_attacked': en_attacked,
-                        'ru_trans_attacked': translations
-                    },
-                    ensure_ascii=False
-                ) + '\n'
-            )
+            message = f"[{i} / {len(data)}] \n{initial_text}\n{adv_text}\n"
+            typer.echo(message)
+            writer.write(adversarial_output.to_dict())
 
 
 if __name__ == "__main__":

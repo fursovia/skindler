@@ -29,5 +29,5 @@ python skindler/commands/attack.py skindler/configs/attacks/gradient_attack.json
 ## Get metrics of attack
 
 ```bash
-python skindler/commands/get_metrics.py --attack-path path/to/attack_output
+python skindler/commands/validate.py path_to_attack_output
 ```

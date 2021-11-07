@@ -41,14 +41,6 @@ class AttackerOutput:
         return s
 
 
-def load_attacks(path: Path) -> List[AttackerOutput]:
-    attacks = []
-    with Path(path).open("r") as f:
-        for line in f:
-            attacks.append(AttackerOutput(**json.loads(line)))
-    return attacks
-
-
 class Attacker(ABC, Registrable):
 
     def __init__(self, device: int = -1,) -> None:

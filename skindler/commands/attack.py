@@ -24,15 +24,17 @@ def attack(
 
     params = Params.from_file(config_path)
     attacker = Attacker.from_params(params["attacker"])
+    typer.echo("loaded attack module")
     try:
         data = load_dataset(*DATASET_NAME)['test'][:samples]
         source_lang = 'en'
         target_lang = 'ru'
         x = [ex[source_lang] for ex in data["translation"]]
         y = [ex[target_lang] for ex in data["translation"]]
-        data = [(x_, y_) for (x, y) in zip(x, y)]
+        data = [(x_, y_) for (x_, y_) in zip(x, y)]
     except BaseException:
         data = load_jsonlines(data_path)[:samples]
+    typer.echo("loaded data")
 
     out_dir = Path(out_dir)
     out_dir.mkdir(exist_ok=True, parents=True)
@@ -42,12 +44,11 @@ def attack(
     params.to_file(str(config_path))
     output_path = out_dir / "data.json"
 
-    typer.secho(f"Saving results to {output_path}...", fg="green")
+    typer.secho(f"Saving results to {output_path}", fg="green")
     with jsonlines.open(output_path, "w") as writer:
         for i, sample in enumerate(data):
-            inputs = AttackerInput(sample)
+            inputs = AttackerInput(*sample)
 
-            typer.echo(getattr(inputs, text_field))
             try:
                 adversarial_output = attacker.attack(inputs)
             except Exception as e:
@@ -57,7 +58,11 @@ def attack(
                     bold=True)
                 typer.echo(error_message)
                 adversarial_output = AttackerOutput(
-                    data=inputs, adversarial_data=inputs, probability=1.0, adversarial_probability=1.0
+                    x=inputs.x,
+                    y=inputs.y,
+                    x_attacked=inputs.x,
+                    y_trans=inputs.y,
+                    y_trans_attacked=inputs.y
                 )
 
             initial_text = getattr(adversarial_output, 'x')

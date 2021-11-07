@@ -4,6 +4,8 @@ import numpy as np
 import torch
 from copy import copy
 from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
 from skindler.attackers import AttackerInput, AttackerOutput, Attacker
 from skindler import MAX_LENGTH
 
@@ -24,12 +26,12 @@ def second_letter_is_uppercase(word: str) -> bool:
 
 
 @Attacker.register("gradient_attack")
-class GradientGuidedAttack:
+class GradientGuidedAttack(Attacker):
     def __init__(
             self,
             model_name,
             tokenizer_name,
-            device: str = -1,
+            device: int = -1,
             threshold: float = 0.75,
             max_iteration: int = 100):
         super().__init__(device)
@@ -39,14 +41,14 @@ class GradientGuidedAttack:
         self.model.eval()
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
 
-        self.tokenizer_vocab = tokenizer.get_vocab()
+        self.tokenizer_vocab = self.tokenizer.get_vocab()
         self.model.model.shared.register_backward_hook(extract_grad_hook)
         self.indexes_starting_with_underscore = np.array(
-            [i.startswith('▁') for i in list(tokenizer.get_vocab().keys())])
+            [i.startswith('▁') for i in list(self.tokenizer.get_vocab().keys())])
         self.indexes_first_uppercase = np.array(
-            [i[0].isupper() for i in list(tokenizer.get_vocab().keys())])
+            [i[0].isupper() for i in list(self.tokenizer.get_vocab().keys())])
         self.indexes_second_uppercase = np.array(
-            [second_letter_is_uppercase(i) for i in list(tokenizer.get_vocab().keys())])
+            [second_letter_is_uppercase(i) for i in list(self.tokenizer.get_vocab().keys())])
         self.threshold = threshold
         self.max_iteration = max_iteration
 
@@ -73,54 +75,64 @@ class GradientGuidedAttack:
         attack_input = self.move_to_device(attack_input)
         data_attacked = self.gradient_attack(attack_input)
         attack_output = self.prepare_attack_output(
-            data_to_attack, attack_input, data_attacked)
+            data_to_attack, data_attacked)
         return attack_output
 
     def prepare_attack_input(
             self, data_to_attack: AttackerInput) -> Dict[str, Any]:
-        attack_input = tokenizer(
+        attack_input = self.tokenizer(
             data_to_attack.x,
             max_length=MAX_LENGTH,
             padding=True,
-            truncation=True)
+            truncation=True,
+            return_tensors='pt'
+        )
 
-        with tokenizer.as_target_tokenizer():
-            attack_input["labels"] = tokenizer(
+        with self.tokenizer.as_target_tokenizer():
+            attack_input["labels"] = self.tokenizer(
                 data_to_attack.y,
                 max_length=MAX_LENGTH,
                 padding=True,
-                truncation=True)['input_ids']
+                truncation=True,
+                return_tensors='pt'
+            )['input_ids']
 
         return attack_input
 
     def prepare_attack_output(self, data_to_attack: AttackerInput,
-                              attack_input: Dict[str, Any], data_attacked: str) -> AttackerOutput:
+                              data_attacked: str) -> AttackerOutput:
 
         with torch.no_grad():
-            translated = model.generate(attack_input['input_ids'])
-            y_trans = tokenizer.decode(translated[0], skip_special_tokens=True)
-            translated = model.generate(torch.tensor(
-                tokenizer.encode(data_attacked)).unsqueeze(0).to(self.device))
-            y_trans_attacked = tokenizer.decode(
+            translated = self.model.generate(torch.tensor(
+                self.tokenizer.encode(
+                    data_to_attack.x
+                )).unsqueeze(0).to(self.device))
+            y_trans = self.tokenizer.decode(
                 translated[0], skip_special_tokens=True)
+
+            att_translated = self.model.generate(torch.tensor(
+                self.tokenizer.encode(
+                    data_attacked.replace("[[", "").replace("]]", "")
+                )).unsqueeze(0).to(self.device))
+            y_trans_attacked = self.tokenizer.decode(
+                att_translated[0], skip_special_tokens=True)
 
         output = AttackerOutput(
             x=data_to_attack.x,
-            y=data_to_attack.y
+            y=data_to_attack.y,
             x_attacked=data_attacked,
             y_trans=y_trans,
             y_trans_attacked=y_trans_attacked
         )
         return output
 
-    def gradient_attack(self, attack_input: Dict[str, Any]) -> str:
-
-        batch = {i: j.to(self.device) for i, j in batch.items()}
+    def gradient_attack(
+            self, attack_input: Dict[str, Any], verbose=False) -> str:
 
         losses_history = []
         input_history = [
             self.get_input_text(
-                batch['input_ids'],
+                attack_input['input_ids'],
                 self.tokenizer)]
         if verbose:
             print(input_history[0])
@@ -135,7 +147,7 @@ class GradientGuidedAttack:
             extracted_grads = []
             self.model.zero_grad()
 
-            output = self.model(**batch)
+            output = self.model(**attack_input)
             output['loss'].backward()
             input_gradient = extracted_grads[1][0]
             embedding_weight = self.model.model.shared.weight
@@ -143,7 +155,7 @@ class GradientGuidedAttack:
             choose position
             '''
             norm_of_input_gradients = torch.norm(input_gradient[0], 2, dim=1)
-            norm_of_input_gradients[batch['input_ids'].shape[1]:] = -np.inf
+            norm_of_input_gradients[attack_input['input_ids'].shape[1]:] = -np.inf
             for i in already_flipped:
                 norm_of_input_gradients[i] = -np.inf
             if np.isinf(norm_of_input_gradients.cpu().max().numpy()):
@@ -155,7 +167,7 @@ class GradientGuidedAttack:
             choose token
             '''
             input_gradient = input_gradient[0][position].view(1, 1, -1)
-            old_token_id = batch['input_ids'][0][position]
+            old_token_id = attack_input['input_ids'][0][position]
             embedding_of_old_token = self.model.model.shared(
                 torch.tensor(old_token_id.view(1, -1)))
             cosine_distances = self.get_cosine_dist(
@@ -174,7 +186,7 @@ class GradientGuidedAttack:
             difference[cosine_distances < self.threshold] = - \
                 np.inf  # out only tokens which have similar embedding due to cosine embedding
             # don't replace with the same token
-            difference[batch['input_ids'][0][position].item()] = -np.inf
+            difference[attack_input['input_ids'][0][position].item()] = -np.inf
             old_token = self.tokenizer.convert_ids_to_tokens(
                 [old_token_id.item()])[0]
             # don't replace with the same token(upper\lower case)
@@ -208,27 +220,27 @@ class GradientGuidedAttack:
                     iteration,
                     position,
                     self.tokenizer.decode(
-                        [batch['input_ids'][0][position].item()]),
+                        [attack_input['input_ids'][0][position].item()]),
                     self.tokenizer.decode([new_token])
                 )
 
-            changed_input = copy(batch['input_ids'][0].tolist())
+            changed_input = copy(attack_input['input_ids'][0].tolist())
             if changed_input[position] == new_token:
                 already_flipped = already_flipped[:-1]
                 break
             changed_input[position] = new_token
-            batch['input_ids'] = torch.tensor(
+            attack_input['input_ids'] = torch.tensor(
                 changed_input).unsqueeze(0).to(self.device)
 
             losses_history.append(output['loss'].item())
             input_history.append(
                 self.get_input_text(
-                    batch['input_ids'],
+                    attack_input['input_ids'],
                     self.tokenizer))
 
         input_history.append(
             self.get_input_text_flipped(
-                batch['input_ids'],
+                attack_input['input_ids'],
                 self.tokenizer,
                 already_flipped))
         if verbose:

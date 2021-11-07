@@ -1,10 +1,11 @@
 from dataclasses import dataclass, asdict
 from pathlib import Path
 import json
-from typing import List
-from abc import ABC
+from typing import List, Dict
+from abc import ABC, abstractmethod
 from allenai_common import Registrable
 from dataclasses_json import dataclass_json
+import torch
 
 
 @dataclass
@@ -14,7 +15,7 @@ class AttackerInput:
 
     def __repr__(self) -> str:
         s = f"""
-        Orig. sentence: {self.original_text}
+        Orig. sentence: {self.x}
         Orig. translation: {self.y if self.y is not None else "translation is not available"}
         """
         return s
@@ -32,10 +33,10 @@ class AttackerOutput:
     def __repr__(self) -> str:
         s = f"""
         Orig. sentence: {self.x}
-        Att. sentence: {self.x_attacked}
+        Attacked sentence: {self.x_attacked}
         Orig. translation: {self.y}
         Translation: {self.y_trans}
-        Att. translation: {self.y_trans_attacked}
+        Attacked translation: {self.y_trans_attacked}
         """
         return s
 
@@ -61,6 +62,6 @@ class Attacker(ABC, Registrable):
             self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         if self.device != -1:
             return {key: val.to(device=self.device) if isinstance(
-                val, torch.Tensor) else val for key, val in input.items()}
+                val, torch.Tensor) else val for key, val in inputs.items()}
         else:
             return inputs

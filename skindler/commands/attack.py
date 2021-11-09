@@ -33,7 +33,15 @@ def attack(
         y = [ex[target_lang] for ex in data["translation"]]
         data = [(x_, y_) for (x_, y_) in zip(x, y)]
     except BaseException:
-        data = load_jsonlines(data_path)[:samples]
+        data = []
+        with jsonlines.open(data_path) as reader:
+            for obj in reader:
+                data.append(obj)
+        data = data[:samples]
+        x = [i['x'] for i in data]
+        y = [i['y'] for i in data]
+        data = [(x_, y_) for (x_, y_) in zip(x, y)]
+
     typer.echo("loaded data")
 
     out_dir = Path(out_dir)

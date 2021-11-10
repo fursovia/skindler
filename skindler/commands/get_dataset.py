@@ -62,7 +62,7 @@ def get_dataset(
     all_translations = []
 
     for batch in tqdm(lazy_groups_of(dataset, batch_size),
-                      total=math.ceil(len(dataset) / batch_size), miniters=5):
+                      total=math.ceil(len(dataset) / batch_size), miniters=20):
         x = [example['translation'][SRC_LNG] for example in batch]
         y = [example['translation'][TGT_LNG] for example in batch]
 

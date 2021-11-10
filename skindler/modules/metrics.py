@@ -61,7 +61,7 @@ def corpus_chrf(y: List[str], yhat: List[str]) -> float:
 
 
 @register
-def bertscore(y: List[str], yhat: List[str], lang='ru', rescale_with_baseline=True) -> float:
+def bertscore(y: List[str], yhat: List[str], lang='en', rescale_with_baseline=True) -> float:
     metric = datasets.load_metric('bertscore')
     metric.add_batch(predictions=yhat, references=[[i] for i in y])
     result = metric.compute(lang=lang, rescale_with_baseline=rescale_with_baseline)

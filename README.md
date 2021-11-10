@@ -1,5 +1,10 @@
 # Skindler
 
+## Prepare data for our attacks
+Main idea: translate sentence, get metric, predict it, using differentiable model
+```bash
+CUDA_VISIBLE_DEVICES=0 PYTHONPATH=. python skindler/commands/get_dataset.py DATASET_CONFIG_NAME PATH_TO_SAVE_DATA.jsonl --split train --device 0
+
 
 ## Train your models!
 

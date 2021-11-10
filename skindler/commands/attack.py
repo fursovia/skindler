@@ -1,13 +1,12 @@
 from pathlib import Path
-from datetime import datetime
 
-from allenai_common import Params
-import typer
 import jsonlines
+import typer
+from allenai_common import Params
 from datasets import load_dataset
 
+from skindler import DATASET_NAME, SENTENCES_TO_ATTACK, SRC_LNG, TGT_LNG
 from skindler.attackers import AttackerInput, AttackerOutput, Attacker
-from skindler import SENTENCES_TO_ATTACK, DATASET_NAME, SENTENCES_TO_ATTACK
 
 app = typer.Typer()
 
@@ -27,10 +26,8 @@ def attack(
     typer.echo("loaded attack module")
     try:
         data = load_dataset(*DATASET_NAME)['test'][:samples]
-        source_lang = 'en'
-        target_lang = 'ru'
-        x = [ex[source_lang] for ex in data["translation"]]
-        y = [ex[target_lang] for ex in data["translation"]]
+        x = [ex[SRC_LNG] for ex in data["translation"]]
+        y = [ex[TGT_LNG] for ex in data["translation"]]
         data = [(x_, y_) for (x_, y_) in zip(x, y)]
     except BaseException:
         data = []

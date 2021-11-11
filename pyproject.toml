@@ -7,7 +7,7 @@ authors = ["i.fursov <i.fursov@tinkoff.ru>"]
 [tool.poetry.dependencies]
 python = "^3.7"
 datasets = "^1.8.0"
-transformers = "^4.8.1"
+transformers = "^4.9.2"
 torch = "^1.9.0"
 typer = "^0.3.2"
 nltk = "^3.6.2"
@@ -19,6 +19,7 @@ bert-score = "0.3.7"
 allenai-common = "^1.1.2"
 dataclasses-json = "^0.5.6"
 jsonlines = "^2.0.0"
+wandb = "^0.12.6"
 
 [tool.poetry.dev-dependencies]
 

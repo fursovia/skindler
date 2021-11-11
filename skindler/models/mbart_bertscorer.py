@@ -78,23 +78,24 @@ class MbartBertScorer(torch.nn.Module):
 if __name__ == '__main__':
     args = {
         'output_dir': '../skindler_data/experiments/',
-        'cache_dir': 'cache',
+        'cache_dir': '../skindler_data/cache',
         'model_name': MBART_NAME,
         'text_column_name': 'x',
 
     }
     data_files = {
-        "train": "../skindler_data/mbart_bertscore/mbart_bertscore_train.jsonl", 
-        "validation": "../skindler_data/mbart_bertscore/mbart_bertscore_validation.jsonl"
+        "train": "../skindler_data/mbart_bertscore/mbart_bertscore_train.json", 
+        "validation": "../skindler_data/mbart_bertscore/mbart_bertscore_validation.json"
     }
     training_args = TrainingArguments(
         output_dir=args['output_dir'],
         label_names=['input_ids'],
         report_to=['wandb'],
-        save_total_limit=10,
+        run_name='mbart_bertscorer_l1_loss',
+        save_total_limit=2,
         dataloader_num_workers=4,
-        per_device_train_batch_size=40,
-        per_device_eval_batch_size=40,
+        per_device_train_batch_size=5,
+        per_device_eval_batch_size=5,
         do_train=True,
         do_eval=True,
         metric_for_best_model='eval_loss',
@@ -109,7 +110,9 @@ if __name__ == '__main__':
     column_names = raw_datasets["train"].column_names
     column_names.remove('bertscore')
     tokenizer = MBart50TokenizerFast.from_pretrained(args['model_name'])
-
+    
+    print(raw_datasets)
+    
     def tokenize_function(examples):
         return tokenizer(
             examples[args['text_column_name']],
@@ -126,9 +129,10 @@ if __name__ == '__main__':
             remove_columns=column_names,
             desc="Running tokenizer on every text in dataset",
         )
-
+    
+    print('load model')
     model = MbartBertScorer(args['model_name'])
-
+    
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -138,7 +142,7 @@ if __name__ == '__main__':
         data_collator=default_data_collator,
         callbacks=[EarlyStoppingCallback(early_stopping_patience=5)]
     )
-
+    print('start training')
     train_result = trainer.train()
     trainer.save_model()
     trainer.log_metrics("train", train_result.metrics)

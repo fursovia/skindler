@@ -46,7 +46,8 @@ def get_dataset(
     dataset = load_dataset(*DATASET_NAME)
     splits_to_use = [split]
     dataset = concatenate_datasets([dataset[split] for split in splits_to_use]).select(list(
-        filter(lambda x: x < len(dataset[splits_to_use[0]]), torch.arange(samples_to_use).tolist())))
+        filter(lambda x: x < len(dataset[splits_to_use[0]]),
+               torch.arange(samples_to_use).tolist())))
 
     typer.echo(f"Dataset len : {len(dataset)}; split: {split}")
 

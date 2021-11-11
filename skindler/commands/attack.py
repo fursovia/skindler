@@ -18,7 +18,7 @@ MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
 
 
 app = Typer()
-
+# CUDA_VISIBLE_DEVICES=3 PYTHONPATH=. python skindler/commands/attack.py data/valid_micro.json --ae-dir experiments/ae_noisy/mycheck/ --bl-dir experiments/bleuer_noisy/mycheck/ --save-to 11_nov.json --epsilon 0.25
 
 def calculate_metric(source: str, source_attacked: str, translation: str, translation_attacked: str) -> float:
     # should be large!
@@ -61,7 +61,7 @@ def attack(
 
     attacked_sentences = []
     for step in range(num_steps):
-        embeddings.grad = None
+        embeddings = torch.from_numpy(embeddings.detach().cpu()).to(device)
         embeddings.requires_grad = True
 
         # shape [1, 1] [0.2 L1 loss on validation set]

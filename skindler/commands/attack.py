@@ -133,6 +133,8 @@ def main(
             )
 
             best_metric = 0.0
+            translation_history = []
+            metric_history = []
             for i, en_attacked in enumerate(en_attacked_list):
                 batch_text_inputs = tokenizer(
                     en_attacked,
@@ -147,7 +149,7 @@ def main(
                 translations = tokenizer.batch_decode(
                     output, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )[0]
-
+                translation_history.append(translations)
                 if i == 0:
                     best_source_attacked = en_attacked
                     best_target_attacked = translations
@@ -155,6 +157,7 @@ def main(
                 metric = calculate_metric(
                     source=en, source_attacked=en_attacked, translation=ru_trans, translation_attacked=translations
                 )
+                metric_history.append(metric)
                 if metric > best_metric:
                     best_metric = metric
                     best_source_attacked = en_attacked
@@ -168,7 +171,8 @@ def main(
                         'ru_trans': ru_trans,
                         'en_attacked': best_source_attacked,
                         'ru_trans_attacked': best_target_attacked,
-                        'metric': best_metric
+                        'metric': best_metric,
+                        'history': list(zip(en_attacked_list, translation_history, metric_history))
                     },
                     ensure_ascii=False
                 ) + '\n'

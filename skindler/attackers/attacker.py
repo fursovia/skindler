@@ -43,7 +43,7 @@ class AttackerOutput:
 class Attacker(ABC, Registrable):
 
     def __init__(self, device: int = -1, ) -> None:
-        self.device = torch.device(f'cuda:{device}') if device != -1 else -1
+        self.device = torch.device(f'cuda:{device}') if device != -1 else torch.device('cpu')
 
     @abstractmethod
     def attack(self, data_to_attack: AttackerInput) -> AttackerOutput:

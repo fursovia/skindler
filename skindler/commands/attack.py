@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import List
 import json
 from tqdm import tqdm
 
@@ -7,6 +8,7 @@ import torch.nn.functional
 from transformers import MarianMTModel, MarianTokenizer
 from transformers.trainer_utils import get_last_checkpoint
 from typer import Typer
+from nltk.translate.bleu_score import sentence_bleu
 
 from skindler import MODEL_NAME, MAX_LENGTH
 from skindler.models import MarianAutoEncoder, Bleuer
@@ -18,14 +20,30 @@ MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
 app = Typer()
 
 
+def calculate_metric(source: str, source_attacked: str, translation: str, translation_attacked: str) -> float:
+    # should be large!
+    source_bleu = sentence_bleu([source_attacked.lower()], source.lower())
+    # should be small!
+    target_bleu = sentence_bleu([translation_attacked.lower()], translation.lower())
+    target_bleu_inversed = 1.0 - target_bleu
+
+    if source_bleu or target_bleu_inversed:
+        metric = 2 * (source_bleu * target_bleu_inversed) / (source_bleu + target_bleu_inversed)
+    else:
+        metric = 0.0
+    return metric
+
+
 def attack(
         text: str,
         tokenizer: MarianTokenizer,
         autoencoder: MarianAutoEncoder,
         bleuer: Bleuer,
         epsilon: float = 0.25,
+        num_steps: int = 10,
+        sign_mode: bool = True,
         device: torch.device = torch.device('cuda')
-):
+) -> List[str]:
 
     for params in bleuer.parameters():
         params.grad = None
@@ -40,20 +58,29 @@ def attack(
 
     # shape [1, num_tokens, 512]
     embeddings = autoencoder.get_embeddings(**inputs)
-    embeddings.requires_grad = True
 
-    # shape [1, 1] [0.2 L1 loss on validation set]
-    bleu = bleuer.get_logits(embeddings)
-    loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
-    loss.backward()
+    attacked_sentences = []
+    for step in range(num_steps):
+        embeddings.grad = None
+        embeddings.requires_grad = True
 
-    perturbed_embeddings = embeddings + epsilon * embeddings.grad.data.sign()
-    # shape [1, num_tokens, vocab_size] [~0.02 cross entropy loss]
-    logits = autoencoder.get_logits(perturbed_embeddings)
-    # shape [1, num_tokens]
-    ids = logits.argmax(dim=-1)
-    decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    return decoded.replace('▁', ' ').strip()
+        # shape [1, 1] [0.2 L1 loss on validation set]
+        bleu = bleuer.get_logits(embeddings)
+        loss = torch.nn.functional.l1_loss(bleu, torch.tensor(1.0, device=device))
+        loss.backward()
+
+        if sign_mode:
+            embeddings = embeddings + epsilon * embeddings.grad.data.sign()
+        else:
+            embeddings = embeddings + epsilon * embeddings.grad.data
+        # shape [1, num_tokens, vocab_size] [~0.02 cross entropy loss]
+        logits = autoencoder.get_logits(embeddings)
+        # shape [1, num_tokens]
+        ids = logits.argmax(dim=-1)
+        decoded = tokenizer.decode(ids[0].cpu(), skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        decoded = decoded.replace('▁', ' ').strip()
+        attacked_sentences.append(decoded)
+    return attacked_sentences
 
 
 @app.command()
@@ -92,23 +119,33 @@ def main(
             ru_trans = example['ru_trans']
             # bleu = example['bleu']
 
-            en_attacked = attack(
+            en_attacked_list = attack(
                 en, tokenizer=tokenizer, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon, device=device
             )
 
-            batch_text_inputs = tokenizer(
-                en_attacked,
-                max_length=MAX_LENGTH,
-                return_tensors='pt',
-                padding=True,
-                truncation=True
-            )
-            batch_text_inputs.to(device)
+            best_metric = 0.0
+            for en_attacked in en_attacked_list:
+                batch_text_inputs = tokenizer(
+                    en_attacked,
+                    max_length=MAX_LENGTH,
+                    return_tensors='pt',
+                    padding=True,
+                    truncation=True
+                )
+                batch_text_inputs.to(device)
 
-            output = model.generate(**batch_text_inputs)
-            translations = tokenizer.batch_decode(
-                output, skip_special_tokens=True, clean_up_tokenization_spaces=True
-            )[0]
+                output = model.generate(**batch_text_inputs)
+                translations = tokenizer.batch_decode(
+                    output, skip_special_tokens=True, clean_up_tokenization_spaces=True
+                )[0]
+
+                metric = calculate_metric(
+                    source=en, source_attacked=en_attacked, translation=ru_trans, translation_attacked=translations
+                )
+                if metric > best_metric:
+                    best_metric = metric
+                    best_source_attacked = en_attacked
+                    best_target_attacked = translations
 
             f.write(
                 json.dumps(
@@ -116,8 +153,8 @@ def main(
                         'en': en,
                         'ru': ru,
                         'ru_trans': ru_trans,
-                        'en_attacked': en_attacked,
-                        'ru_trans_attacked': translations
+                        'en_attacked': best_source_attacked,
+                        'ru_trans_attacked': best_target_attacked
                     },
                     ensure_ascii=False
                 ) + '\n'

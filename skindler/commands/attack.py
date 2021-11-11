@@ -41,7 +41,7 @@ def attack(
         bleuer: Bleuer,
         epsilon: float = 0.25,
         num_steps: int = 10,
-        sign_mode: bool = True,
+        sign_mode: bool = False,
         device: torch.device = torch.device('cuda')
 ) -> List[str]:
 

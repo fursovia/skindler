@@ -1,11 +1,10 @@
-from dataclasses import dataclass, asdict
-from pathlib import Path
-import json
-from typing import List, Dict
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Dict
+
+import torch
 from allenai_common import Registrable
 from dataclasses_json import dataclass_json
-import torch
 
 
 @dataclass
@@ -43,7 +42,7 @@ class AttackerOutput:
 
 class Attacker(ABC, Registrable):
 
-    def __init__(self, device: int = -1,) -> None:
+    def __init__(self, device: int = -1, ) -> None:
         self.device = torch.device(f'cuda:{device}') if device != -1 else -1
 
     @abstractmethod

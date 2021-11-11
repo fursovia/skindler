@@ -3,12 +3,12 @@ import math
 from pathlib import Path
 
 import torch
+import typer
 from datasets import concatenate_datasets
 from datasets import load_dataset
 from nltk.translate.bleu_score import sentence_bleu
 from tqdm import tqdm
-from transformers import AutoModel, AutoTokenizer, MarianMTModel, MarianTokenizer, MBartForConditionalGeneration, MBart50TokenizerFast
-import typer
+from transformers import MarianMTModel, MarianTokenizer, MBartForConditionalGeneration, MBart50TokenizerFast
 
 from skindler import DATASET_NAME, MODEL_NAME, MAX_LENGTH, MBART_NAME, SRC_LNG, TGT_LNG
 from skindler.modules.metrics import ALL_METRICS
@@ -38,15 +38,14 @@ def get_dataset(
         split: str = 'train',
         batch_size: int = 128,
         device: int = -1,
-        samples_to_use: int = 10000,
-        sample: bool = False):
+        samples_to_use: int = 10000):
     assert task in COLLECT_DATASET_CONFIG.keys()
     config = COLLECT_DATASET_CONFIG[task]
 
     dataset = load_dataset(*DATASET_NAME)
     splits_to_use = [split]
     dataset = concatenate_datasets([dataset[split] for split in splits_to_use]).select(list(
-        filter(lambda x: x < len(dataset[splits_to_use[0]]),
+        filter(lambda i: i < len(dataset[splits_to_use[0]]),
                torch.arange(samples_to_use).tolist())))
 
     typer.echo(f"Dataset len : {len(dataset)}; split: {split}")
@@ -98,7 +97,6 @@ def get_dataset(
     with save_to.open("w") as f:
         for x_sentence, y_sentence, y_translated_sentence, target_metric in zip(
                 all_x, all_y, all_translations, all_target_metric):
-
             f.write(
                 json.dumps(
                     {

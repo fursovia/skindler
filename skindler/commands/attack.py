@@ -90,6 +90,8 @@ def main(
         bl_dir: Path = Path('experiments/bleuer'),
         save_to: Path = Path('results.json'),
         epsilon: float = 0.25,
+        num_steps: int = 10,
+        sign_mode: bool = True,
 ):
     device = torch.device("cuda")
 
@@ -120,7 +122,14 @@ def main(
             # bleu = example['bleu']
 
             en_attacked_list = attack(
-                en, tokenizer=tokenizer, autoencoder=autoencoder, bleuer=bleuer, epsilon=epsilon, device=device
+                en,
+                tokenizer=tokenizer,
+                autoencoder=autoencoder,
+                bleuer=bleuer,
+                epsilon=epsilon,
+                device=device,
+                num_steps=num_steps,
+                sign_mode=sign_mode
             )
 
             best_metric = 0.0
@@ -159,6 +168,7 @@ def main(
                     ensure_ascii=False
                 ) + '\n'
             )
+            f.flush()
 
 
 if __name__ == "__main__":

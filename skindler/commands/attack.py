@@ -91,7 +91,7 @@ def main(
         save_to: Path = Path('results.json'),
         epsilon: float = 0.25,
         num_steps: int = 10,
-        sign_mode: bool = True,
+        sign_mode: bool = False,
 ):
     device = torch.device("cuda")
 

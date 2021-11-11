@@ -167,7 +167,8 @@ def main(
                         'ru': ru,
                         'ru_trans': ru_trans,
                         'en_attacked': best_source_attacked,
-                        'ru_trans_attacked': best_target_attacked
+                        'ru_trans_attacked': best_target_attacked,
+                        'metric': best_metric
                     },
                     ensure_ascii=False
                 ) + '\n'

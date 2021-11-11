@@ -133,7 +133,7 @@ def main(
             )
 
             best_metric = 0.0
-            for en_attacked in en_attacked_list:
+            for i, en_attacked in enumerate(en_attacked_list):
                 batch_text_inputs = tokenizer(
                     en_attacked,
                     max_length=MAX_LENGTH,
@@ -147,6 +147,10 @@ def main(
                 translations = tokenizer.batch_decode(
                     output, skip_special_tokens=True, clean_up_tokenization_spaces=True
                 )[0]
+
+                if i == 0:
+                    best_source_attacked = en_attacked
+                    best_target_attacked = translations
 
                 metric = calculate_metric(
                     source=en, source_attacked=en_attacked, translation=ru_trans, translation_attacked=translations

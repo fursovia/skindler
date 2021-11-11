@@ -1,13 +1,11 @@
-from typing import Dict, Any, List
+from copy import copy
+from typing import Dict, Any
 
 import numpy as np
 import torch
-from copy import copy
-from tqdm import tqdm
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, MBartForConditionalGeneration, MBart50TokenizerFast
+from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 
 from skindler.attackers import AttackerInput, AttackerOutput, Attacker, GradientGuidedAttack
-from skindler import MAX_LENGTH
 
 extracted_grads = []
 
@@ -83,27 +81,6 @@ class MbartGradientGuidedUpdateInput(GradientGuidedAttack, Attacker):
         logits = self.linear2(embeddings)
         return logits
 
-    def prepare_attack_input(
-            self, data_to_attack: AttackerInput) -> Dict[str, Any]:
-        attack_input = self.tokenizer(
-            data_to_attack.x,
-            max_length=MAX_LENGTH,
-            padding=True,
-            truncation=True,
-            return_tensors='pt'
-        )
-
-        with self.tokenizer.as_target_tokenizer():
-            attack_input["labels"] = self.tokenizer(
-                data_to_attack.y,
-                max_length=MAX_LENGTH,
-                padding=True,
-                truncation=True,
-                return_tensors='pt'
-            )['input_ids']
-
-        return attack_input
-
     def prepare_attack_output(self, data_to_attack: AttackerInput,
                               data_attacked: str) -> AttackerOutput:
 
@@ -112,8 +89,8 @@ class MbartGradientGuidedUpdateInput(GradientGuidedAttack, Attacker):
                 self.tokenizer.encode(
                     data_to_attack.x
                 )).unsqueeze(0).to(self.device),
-                forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
-            )
+                                             forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
+                                             )
             y_trans = self.tokenizer.decode(
                 translated[0], skip_special_tokens=True)
 
@@ -121,8 +98,8 @@ class MbartGradientGuidedUpdateInput(GradientGuidedAttack, Attacker):
                 self.tokenizer.encode(
                     data_attacked.replace("[[", "").replace("]]", "")
                 )).unsqueeze(0).to(self.device),
-                forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
-            )
+                                                 forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
+                                                 )
             y_trans_attacked = self.tokenizer.decode(
                 att_translated[0], skip_special_tokens=True)
 
@@ -147,8 +124,8 @@ class MbartGradientGuidedUpdateInput(GradientGuidedAttack, Attacker):
             print(input_history[0])
 
         stop_tokens = [
-            self.tokenizer.convert_tokens_to_ids(
-                i[1]) for i in self.tokenizer.special_tokens_map.items()] + list(
+                          self.tokenizer.convert_tokens_to_ids(
+                              i[1]) for i in self.tokenizer.special_tokens_map.items()] + list(
             self.tokenizer.lang_code_to_id.values())
 
         already_flipped = [0, -1]  # not replacing first and last tokens

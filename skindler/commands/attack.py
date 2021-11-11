@@ -61,7 +61,7 @@ def attack(
 
     attacked_sentences = []
     for step in range(num_steps):
-        embeddings = torch.from_numpy(embeddings.detach().cpu()).to(device)
+        embeddings = torch.from_numpy(embeddings.detach().cpu().numpy()).to(device)
         embeddings.requires_grad = True
 
         # shape [1, 1] [0.2 L1 loss on validation set]

@@ -1,10 +1,9 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
-from typer import Typer
 import pandas as pd
+from typer import Typer
 
-from skindler.modules.metrics import ALL_METRICS
 from skindler.utils import count_metrics
 
 app = Typer()
@@ -12,7 +11,6 @@ app = Typer()
 
 @app.command()
 def validate(results_path: Path):
-
     df = []
     with results_path.open() as f:
         for line in f.readlines():

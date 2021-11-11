@@ -1,12 +1,12 @@
 import torch
-from transformers.models.mbart.modeling_mbart import MBartEncoder
-from transformers import MBartForConditionalGeneration
-from transformers import MBart50TokenizerFast, Trainer, default_data_collator
-from transformers.training_args import TrainingArguments
-from transformers.modeling_outputs import SequenceClassifierOutput
-from transformers import EarlyStoppingCallback
-from transformers.trainer_utils import IntervalStrategy
 from datasets import load_dataset
+from transformers import EarlyStoppingCallback
+from transformers import MBart50TokenizerFast, Trainer, default_data_collator
+from transformers import MBartForConditionalGeneration
+from transformers.modeling_outputs import SequenceClassifierOutput
+from transformers.models.mbart.modeling_mbart import MBartEncoder
+from transformers.trainer_utils import IntervalStrategy
+from transformers.training_args import TrainingArguments
 
 from skindler import MBART_NAME, MAX_LENGTH
 
@@ -46,15 +46,15 @@ class MbartBertScorer(torch.nn.Module):
         return logits
 
     def forward(
-        self,
-        input_ids=None,
-        bertscore=None,
-        attention_mask=None,
-        head_mask=None,
-        inputs_embeds=None,
-        output_attentions=None,
-        output_hidden_states=None,
-        return_dict=None,
+            self,
+            input_ids=None,
+            bertscore=None,
+            attention_mask=None,
+            head_mask=None,
+            inputs_embeds=None,
+            output_attentions=None,
+            output_hidden_states=None,
+            return_dict=None,
     ):
         embeddings = self.get_embeddings(input_ids, attention_mask)
         logits = self.get_logits(embeddings)
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     }
     data_files = {
-        "train": "../skindler_data/mbart_bertscore/mbart_bertscore_train.json", 
+        "train": "../skindler_data/mbart_bertscore/mbart_bertscore_train.json",
         "validation": "../skindler_data/mbart_bertscore/mbart_bertscore_validation.json"
     }
     training_args = TrainingArguments(
@@ -110,9 +110,10 @@ if __name__ == '__main__':
     column_names = raw_datasets["train"].column_names
     column_names.remove('bertscore')
     tokenizer = MBart50TokenizerFast.from_pretrained(args['model_name'])
-    
+
     print(raw_datasets)
-    
+
+
     def tokenize_function(examples):
         return tokenizer(
             examples[args['text_column_name']],
@@ -120,6 +121,7 @@ if __name__ == '__main__':
             truncation=True,
             max_length=MAX_LENGTH,
         )
+
 
     with training_args.main_process_first(desc="dataset map tokenization"):
         tokenized_datasets = raw_datasets.map(
@@ -129,10 +131,10 @@ if __name__ == '__main__':
             remove_columns=column_names,
             desc="Running tokenizer on every text in dataset",
         )
-    
+
     print('load model')
     model = MbartBertScorer(args['model_name'])
-    
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -152,4 +154,3 @@ if __name__ == '__main__':
     metrics = trainer.evaluate()
     trainer.log_metrics("eval", metrics)
     trainer.save_metrics("eval", metrics)
-

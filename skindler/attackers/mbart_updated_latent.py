@@ -1,12 +1,10 @@
-from copy import copy
 from typing import Dict, Any
 
-import numpy as np
 import torch
 from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 from transformers.modeling_outputs import BaseModelOutput
 
-from skindler.attackers import AttackerInput, AttackerOutput, Attacker, MbartGradientGuidedUpdateInput
+from skindler.attackers import Attacker, MbartGradientGuidedUpdateInput
 
 
 @Attacker.register("mbart_update_latent")
@@ -31,37 +29,6 @@ class MbartUpdateLatent(MbartGradientGuidedUpdateInput, Attacker):
 
         self.epsilon = epsilon
         self.max_iteration = max_iteration
-
-    def prepare_attack_output(self, data_to_attack: AttackerInput,
-                              data_attacked: str) -> AttackerOutput:
-
-        with torch.no_grad():
-            translated = self.model.generate(torch.tensor(
-                self.tokenizer.encode(
-                    data_to_attack.x
-                )).unsqueeze(0).to(self.device),
-                forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
-            )
-            y_trans = self.tokenizer.decode(
-                translated[0], skip_special_tokens=True)
-
-            att_translated = self.model.generate(torch.tensor(
-                self.tokenizer.encode(
-                    data_attacked.replace("[[", "").replace("]]", "")
-                )).unsqueeze(0).to(self.device),
-                forced_bos_token_id=self.tokenizer.lang_code_to_id["ru_RU"]
-            )
-            y_trans_attacked = self.tokenizer.decode(
-                att_translated[0], skip_special_tokens=True)
-
-        output = AttackerOutput(
-            x=data_to_attack.x,
-            y=data_to_attack.y,
-            x_attacked=data_attacked,
-            y_trans=y_trans,
-            y_trans_attacked=y_trans_attacked
-        )
-        return output
 
     def gradient_attack(
             self, attack_input: Dict[str, Any], verbose=False) -> str:
@@ -94,7 +61,7 @@ class MbartUpdateLatent(MbartGradientGuidedUpdateInput, Attacker):
                     [1.0]).unsqueeze(0).to(
                     self.device))
             loss.backward()
-#             print(emb.grad.data)
+            #             print(emb.grad.data)
             emb = emb + self.epsilon * emb.grad.data + 0.5
             print(emb)
             inputs_for_generation = {'encoder_outputs': BaseModelOutput(emb)}

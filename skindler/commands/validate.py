@@ -5,16 +5,13 @@ from typer import Typer
 import pandas as pd
 
 from skindler.modules.metrics import ALL_METRICS
-
-
-MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
-
+from skindler.utils import count_metrics
 
 app = Typer()
 
 
 @app.command()
-def valiate(results_path: Path):
+def validate(results_path: Path):
 
     df = []
     with results_path.open() as f:
@@ -22,14 +19,29 @@ def valiate(results_path: Path):
             df.append(json.loads(line.strip()))
     df = pd.DataFrame(df)
 
-    en = df["en"].tolist()
-    ru_trans = df["ru_trans"].tolist()
-    en_attacked = df["en_attacked"].tolist()
-    ru_trans_attacked = df["ru_trans_attacked"].tolist()
+    x = df['x'].tolist()
+    y = df['y'].tolist()
+    x_attacked = [i.replace("[[", "").replace("]]", "")
+                  for i in df['x_attacked'].tolist()]
+    y_trans = df['y_trans'].tolist()
+    y_trans_attacked = df['y_trans_attacked'].tolist()
 
-    for metric_name, metric in ALL_METRICS.items():
-        df[f"{metric_name}_en"] = metric(en, en_attacked)
-        df[f"{metric_name}_ru"] = metric(ru_trans, ru_trans_attacked)
+    orig_translate_metrics = count_metrics(y, y_trans)
+    attack_translate_metrics = count_metrics(y, y_trans_attacked)
+    translation_diff_metrics = count_metrics(y_trans, y_trans_attacked)
+    x_metrics = count_metrics(x, x_attacked)
+
+    for metric_name, metric_value in orig_translate_metrics.items():
+        df[f"orig.translation_{metric_name}"] = metric_value
+
+    for metric_name, metric_value in attack_translate_metrics.items():
+        df[f"attacked.translation_{metric_name}"] = metric_value
+
+    for metric_name, metric_value in translation_diff_metrics.items():
+        df[f"diff_translation_{metric_name}"] = metric_value
+
+    for metric_name, metric_value in x_metrics.items():
+        df[f"diff_x_{metric_name}"] = metric_value
 
     save_to = results_path.parent / f"{results_path.stem}_metrics.csv"
     df.to_csv(save_to, index=False)

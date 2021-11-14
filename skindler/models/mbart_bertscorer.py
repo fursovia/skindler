@@ -77,7 +77,7 @@ class MbartBertScorer(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': '../skindler_data/experiments/',
+        'output_dir': '../skindler_data/experiments/mbart_bertscorer_2',
         'cache_dir': '../skindler_data/cache',
         'model_name': MBART_NAME,
         'text_column_name': 'x',
@@ -105,6 +105,7 @@ if __name__ == '__main__':
         eval_steps=5_000,
         save_steps=5_000,
         learning_rate=0.003,
+        num_train_epochs=5
     )
     raw_datasets = load_dataset("json", data_files=data_files, cache_dir=args['cache_dir'])
     column_names = raw_datasets["train"].column_names

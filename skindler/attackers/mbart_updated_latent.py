@@ -33,7 +33,6 @@ class MbartUpdateLatent(MbartGradientGuidedUpdateInput, Attacker):
     def gradient_attack(
             self, attack_input: Dict[str, Any], verbose=False) -> str:
 
-        losses_history = []
         input_history = [
             self.get_input_text(
                 attack_input['input_ids'],
@@ -45,12 +44,8 @@ class MbartUpdateLatent(MbartGradientGuidedUpdateInput, Attacker):
             input_ids=attack_input['input_ids'],
             attention_mask=attack_input['attention_mask'],
         )
-
-        iteration = 0
-        emb = embeddings.last_hidden_state.detach()
-
-        while iteration < self.max_iteration:
-            iteration += 1
+        emb = embeddings.last_hidden_state
+        for _ in range(self.max_iteration):
 
             emb = torch.from_numpy(emb.detach().cpu().numpy()).to(self.device)
             emb.requires_grad = True
@@ -61,22 +56,27 @@ class MbartUpdateLatent(MbartGradientGuidedUpdateInput, Attacker):
                     [1.0]).unsqueeze(0).to(
                     self.device))
             loss.backward()
-            #             print(emb.grad.data)
-            emb = emb + self.epsilon * emb.grad.data + 0.5
-            print(emb)
+            
+            grad = emb.grad.detach()
+            emb.requires_grad = False
+#             print(emb.shape)
+            
+            emb[0][5:10] = emb[0][5:10] + self.epsilon * grad[0][5:10]
             inputs_for_generation = {'encoder_outputs': BaseModelOutput(emb)}
 
             decoded = self.tokenizer.decode(
                 self.model.generate(
                     **inputs_for_generation,
+                    max_length = attack_input['input_ids'][0].shape[0] + 10,
+                    min_length = attack_input['input_ids'][0].shape[0] - 10,
                     forced_bos_token_id=attack_input['input_ids'][0][1].item(),
+                    repetition_penalty = 1.5,
                     decoder_start_token_id=self.tokenizer.lang_code_to_id['en_XX'])[0].tolist(),
-                skip_special_tokens=True)
+                skip_special_tokens=False)
 
             input_history.append(decoded)
-            losses_history.append(loss.item())
-
-        print(input_history)
+#         for i in input_history:
+#             print(i)
         if verbose:
             print(input_history[-1])
         return input_history[-1]

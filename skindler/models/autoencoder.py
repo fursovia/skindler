@@ -12,13 +12,14 @@ from skindler import MODEL_NAME, MAX_LENGTH
 
 
 class MarianAutoEncoder(torch.nn.Module):
-    def __init__(self, model_name: str, dropout: float = 0.1):
+    def __init__(self, model_name: str, dropout: float = 0.1, epsilon: float = 0.1):
         super().__init__()
         self.encoder: MarianEncoder = MarianMTModel.from_pretrained(model_name).get_encoder().eval()
         for params in self.encoder.parameters():
             params.requires_grad = False
         self.num_labels = self.encoder.config.vocab_size
         self.linear = torch.nn.Linear(512, self.num_labels)
+        self.epsilon = epsilon
         self.dropout = torch.nn.Dropout(dropout)
         self.loss = torch.nn.CrossEntropyLoss()
 
@@ -29,6 +30,9 @@ class MarianAutoEncoder(torch.nn.Module):
                 attention_mask=attention_mask,
             )
             embeddings = outputs.last_hidden_state
+
+        if self.training and self.epsilon:
+            embeddings = embeddings + self.epsilon * torch.randn_like(embeddings, device=embeddings.device).sign()
         return embeddings
 
     def get_logits(self, embeddings):
@@ -76,7 +80,7 @@ class MarianAutoEncoder(torch.nn.Module):
 
 if __name__ == '__main__':
     args = {
-        'output_dir': './experiments/ae',
+        'output_dir': './experiments/ae_noisy',
         'cache_dir': 'cache',
         'model_name': MODEL_NAME,
         'text_column_name': 'en',

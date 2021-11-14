@@ -1,18 +1,17 @@
+import json
 from pathlib import Path
 from typing import List
-import json
-from tqdm import tqdm
 
 import torch
 import torch.nn.functional
+from nltk.translate.bleu_score import sentence_bleu
+from tqdm import tqdm
 from transformers import MarianMTModel, MarianTokenizer
 from transformers.trainer_utils import get_last_checkpoint
 from typer import Typer
-from nltk.translate.bleu_score import sentence_bleu
 
 from skindler import MODEL_NAME, MAX_LENGTH
 from skindler.models import MarianAutoEncoder, Bleuer
-
 
 MODELS_FOLDER = (Path(__file__).parent / ".." / "..").resolve() / "models"
 

@@ -60,8 +60,7 @@ class BleuerAttack(Attacker):
         self.sign_mode = sign_mode
 
     def attack(self,
-               data_to_attack: AttackerInput,
-               verbose=False
+               data_to_attack: AttackerInput
                ) -> AttackerOutput:
 
         attack_input = self.prepare_attack_input(data_to_attack)

@@ -16,6 +16,7 @@ def attack(
         config_path: str,
         data_path: str = None,
         out_dir: str = None,
+        max_iteration: int = None,
         threshold: float = None,
         samples: int = typer.Option(
             SENTENCES_TO_ATTACK,
@@ -26,7 +27,9 @@ def attack(
     attacker = Attacker.from_params(params["attacker"])
     if threshold is not None:
         attacker.threshold = threshold / 100
-        
+    if max_iteration is not None:
+        attacker.max_iteration = max_iteration
+
     typer.echo("loaded attack module")
     try:
         data = load_dataset(*DATASET_NAME)['test'][:samples]

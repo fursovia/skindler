@@ -11,6 +11,7 @@ from skindler import MAX_LENGTH
 
 extracted_grads = []
 
+
 def extract_grad_hook(module, grad_in, grad_out):
     extracted_grads.append(grad_out)
 
@@ -43,7 +44,6 @@ class PrefixGradientGuidedAttack(GradientGuidedAttack, Attacker):
         self.model.model.shared.register_backward_hook(extract_grad_hook)
         self.max_iteration = max_iteration
 
-
     def gradient_attack(
             self, attack_input: Dict[str, Any], verbose=False) -> str:
 
@@ -54,7 +54,7 @@ class PrefixGradientGuidedAttack(GradientGuidedAttack, Attacker):
                 self.tokenizer)]
         if verbose:
             print(input_history[0])
-        
+
         del attack_input['attention_mask']
         changed_input = copy(attack_input['input_ids'][0].tolist())
         changed_input.insert(0, self.tokenizer.pad_token_id)
@@ -108,13 +108,13 @@ class PrefixGradientGuidedAttack(GradientGuidedAttack, Attacker):
                     attack_input['input_ids'],
                     self.tokenizer))
             iteration += 1
-            
+
             if verbose:
                 print(self.get_input_text_flipped(
                     attack_input['input_ids'],
                     self.tokenizer,
                     []))
-            
+
         changed_input = copy(attack_input['input_ids'][0].tolist())
         del changed_input[iteration]
         attack_input['input_ids'] = torch.tensor(

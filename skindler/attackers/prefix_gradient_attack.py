@@ -1,13 +1,10 @@
-from typing import Dict, Any, List
-
-import numpy as np
-import torch
 from copy import copy
-from tqdm import tqdm
+from typing import Dict, Any
+
+import torch
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-from skindler.attackers import AttackerInput, AttackerOutput, Attacker, GradientGuidedAttack
-from skindler import MAX_LENGTH
+from skindler.attackers import Attacker, GradientGuidedAttack
 
 extracted_grads = []
 

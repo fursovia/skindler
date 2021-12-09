@@ -1,13 +1,13 @@
-import random
-from typing import Dict, Any, List
 import json
+import random
 
-from skindler.attackers import AttackerInput, AttackerOutput, Attacker
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import torch
 # run '''python -m spacy download en_core_web_lg''' if spacy can't load
 # en_core_web_lg
 import en_core_web_lg
+import torch
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+from skindler.attackers import AttackerInput, AttackerOutput, Attacker
 
 
 @Attacker.register("ner_attack")
@@ -69,7 +69,7 @@ class NerAttack(Attacker):
         return output
 
     def ner_attack(
-            self, attack_input: str, verbose=False) -> str:
+            self, attack_input: str) -> str:
 
         ner_output = self.nlp(attack_input)
         ents = ner_output.ents

@@ -20,6 +20,7 @@ allenai-common = "^1.1.2"
 dataclasses-json = "^0.5.6"
 jsonlines = "^2.0.0"
 wandb = "^0.12.6"
+spacy = "^3.2.1"
 
 [tool.poetry.dev-dependencies]
 

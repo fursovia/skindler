@@ -1,10 +1,12 @@
 #!/bin/bash
-EXPERIMENTFOLDER='../grad_experiment'
 
-for i in {60..90}; do 
+for i in {75..95}; do 
     echo $i; 
-    mkdir -p ${EXPERIMENTFOLDER}/threshold_0.${i}
-    python skindler/commands/gradient_attack.py --experiment-folder ${EXPERIMENTFOLDER}/threshold_0.${i} --threshold 0.${i}
-    python skindler/commands/get_metrics.py --attack-path ${EXPERIMENTFOLDER}/threshold_0.${i}/attack_output
+    python skindler/commands/attack.py \
+        skindler/configs/attacks/gradient_attack.jsonnet \
+        --out-dir ../skindler_data/attack_output/gradient_attack_lm_constraint/gradient_attack_${i}_lm_threshlod \
+        --samples 100 \
+        --lm-threshold ${i}
+    CUDA_VISIBLE_DEVICES=1 python skindler/commands/validate.py ../skindler_data/attack_output/gradient_attack_lm_constraint/gradient_attack_${i}_lm_threshlod/data.json
     
 done

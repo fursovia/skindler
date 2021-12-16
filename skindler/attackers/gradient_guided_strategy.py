@@ -32,7 +32,9 @@ class GradientGuidedAttack(Attacker):
             model_name,
             tokenizer_name,
             device: int = -1,
+            constraint_of_lm: bool = False,
             threshold: float = 0.75,
+            lm_threshold: float = 0.9,
             max_iteration: int = 100):
         super().__init__(device)
 
@@ -49,6 +51,8 @@ class GradientGuidedAttack(Attacker):
             [i[0].isupper() for i in list(self.tokenizer.get_vocab().keys())])
         self.indexes_second_uppercase = np.array(
             [second_letter_is_uppercase(i) for i in list(self.tokenizer.get_vocab().keys())])
+        self.constraint_of_lm = constraint_of_lm
+        self.lm_threshold = lm_threshold
         self.threshold = threshold
         self.max_iteration = max_iteration
 
@@ -139,6 +143,7 @@ class GradientGuidedAttack(Attacker):
         already_flipped = [0, -1]  # not replacing first and last tokens
         stop_tokens = [self.tokenizer.convert_tokens_to_ids(
             i[1]) for i in self.tokenizer.special_tokens_map.items()]
+        
 
         iteration = 0
         while iteration < self.max_iteration:
@@ -151,6 +156,10 @@ class GradientGuidedAttack(Attacker):
             output['loss'].backward()
             input_gradient = extracted_grads[1][0]
             embedding_weight = self.model.model.shared.weight
+            
+            if self.constraint_of_lm:
+                s = {'input_ids': attack_input['input_ids'], 'attention_mask': attack_input['attention_mask']}
+                old_output_of_encoder = self.model.model.encoder(**s).last_hidden_state[0]
             '''
             choose position
             '''
@@ -213,8 +222,41 @@ class GradientGuidedAttack(Attacker):
 
             if np.isinf(difference.numpy().max()):
                 break
-            new_token = difference.argmax()
-
+                
+            if self.constraint_of_lm:
+                def get_cosine_between_old_and_new(difference):
+                    new_token = difference.argmax()
+                    check_input_ids = copy(attack_input['input_ids'][0].tolist())
+                    check_input_ids[position] = new_token
+                    check_input_ids = torch.tensor(check_input_ids).unsqueeze(0).to(self.device)
+                    check_input_attention_mask = copy(attack_input['attention_mask'])
+                    check_input = {'input_ids': check_input_ids, 'attention_mask': check_input_attention_mask}
+                    new_output_of_encoder = self.model.model.encoder(**check_input).last_hidden_state[0]
+                    new_vector = new_output_of_encoder[position]
+                    old_vector = old_output_of_encoder[position]
+                    return ((new_vector @ old_vector ) / (torch.norm(new_vector) * torch.norm(old_vector))).item()  
+                
+                cosine_distance = -1
+                
+                lm_iterations = 0
+                new_token = None
+                while cosine_distance < self.lm_threshold and not np.isinf(difference.numpy().max()) and lm_iterations < 15:
+                    lm_iterations += 1
+                    cosine_distance = get_cosine_between_old_and_new(difference)
+#                     print(cosine_distance)
+                    if cosine_distance >= self.lm_threshold:
+                        new_token = difference.argmax()
+                    else:
+                        difference[difference.argmax()] = -np.inf
+                        
+                if np.isinf(difference.numpy().max()):
+                    break
+                if new_token is None:
+                    break
+                
+            else:
+                new_token = difference.argmax()
+            
             if verbose:
                 print(
                     iteration,

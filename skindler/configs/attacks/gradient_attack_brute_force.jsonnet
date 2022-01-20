@@ -4,7 +4,7 @@
     "model_name": "Helsinki-NLP/opus-mt-en-ru",
     "tokenizer_name": "Helsinki-NLP/opus-mt-en-ru",
     "device": 1,
-    "threshold": 0.75,
+    "threshold": 0.74,
     "max_iteration": 100,
     "number_of_replacement": 50
   }

@@ -5,6 +5,7 @@ import torch
 from copy import copy, deepcopy
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import datasets
 
 from skindler.attackers import AttackerInput, AttackerOutput, Attacker, GradientGuidedAttack
 from skindler import MAX_LENGTH
@@ -38,15 +39,17 @@ class GradientGuidedBruteForceAttack(GradientGuidedAttack, Attacker):
     ):
         GradientGuidedAttack.__init__(
             self,
-            model_name=model_name, 
-            tokenizer_name=tokenizer_name, 
+            model_name=model_name,
+            tokenizer_name=tokenizer_name,
             device=device,
             threshold=threshold,
             max_iteration=max_iteration
         )
-        
+
         self.number_of_replacement = number_of_replacement
         self.model.model.shared.register_backward_hook(extract_grad_hook)
+        self.coefficient_x_difference = 7
+        self.metric = datasets.load_metric('bertscore')
 
     def gradient_attack(
             self, attack_input: Dict[str, Any]) -> str:
@@ -56,11 +59,10 @@ class GradientGuidedBruteForceAttack(GradientGuidedAttack, Attacker):
             self.get_input_text(
                 attack_input['input_ids'],
                 self.tokenizer)]
-        
+
         already_flipped = [0, -1]  # not replacing first and last tokens
         stop_tokens = [self.tokenizer.convert_tokens_to_ids(
             i[1]) for i in self.tokenizer.special_tokens_map.items()]
-        
 
         iteration = 0
         while iteration < self.max_iteration:
@@ -73,7 +75,7 @@ class GradientGuidedBruteForceAttack(GradientGuidedAttack, Attacker):
             output['loss'].backward()
             input_gradient = extracted_grads[1][0]
             embedding_weight = self.model.model.shared.weight
-            
+
             '''
             choose position
             '''
@@ -136,28 +138,44 @@ class GradientGuidedBruteForceAttack(GradientGuidedAttack, Attacker):
 
             if np.isinf(difference.numpy().max()):
                 break
-                
-            top_new_tokens = difference.topk(k=self.number_of_replacement)   
+
+            top_new_tokens = difference.topk(k=self.number_of_replacement)
             top_loss = -np.inf
+            iteration = 0
             for replacement_index in top_new_tokens.indices:
                 replacement_score = difference[replacement_index]
                 if replacement_score != -np.inf:
-                    
-                    def get_loss_modified(replacement_index, position, attack_input):
+
+                    def get_loss_modified(
+                            replacement_index, position, attack_input):
                         attack_input_modified = deepcopy(attack_input)
                         attack_input_modified['input_ids'][0][position] = replacement_index
                         output = self.model(**attack_input_modified)
                         loss = output['loss'].item()
-                        return loss
-                    
-                    current_loss = get_loss_modified(replacement_index, position, attack_input)
-                    if current_loss > top_loss:
-                        top_loss = current_loss
+
+                        diff_x = self.metric.compute(
+                            references=[[
+                                input_history[0]]], predictions=[
+                                self.tokenizer.decode(
+                                    attack_input_modified['input_ids'][0], skip_special_tokens=True).replace(
+                                    "▁", " ")], 
+                            lang='en', 
+                            rescale_with_baseline=True)['f1'][0]
+
+                        diff_x_coef = diff_x * self.coefficient_x_difference
+                        return loss, diff_x_coef
+
+                    current_loss, diff_x_coef = get_loss_modified(
+                        replacement_index, position, attack_input)
+        
+                    iteration += 1
+                    if current_loss + diff_x_coef > top_loss:
+                        top_loss = current_loss + diff_x_coef
                         new_token = replacement_index
-                
+
             if top_loss == -np.inf:
                 break
-            
+
             changed_input = copy(attack_input['input_ids'][0].tolist())
             if changed_input[position] == new_token:
                 already_flipped = already_flipped[:-1]

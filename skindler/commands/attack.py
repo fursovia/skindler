@@ -17,14 +17,18 @@ def attack(
         data_path: str = None,
         out_dir: str = None,
         lm_threshold: float = None,
+        number_of_replacements: int = None,
         samples: int = typer.Option(
             SENTENCES_TO_ATTACK,
             help="Number of samples")
 ):
     params = Params.from_file(config_path)
     attacker = Attacker.from_params(params["attacker"])
+    
     if lm_threshold is not None:
         attacker.lm_threshold = lm_threshold / 100
+    if number_of_replacements is not None:
+        attacker.number_of_replacements = number_of_replacements
     
     typer.echo("loaded attack module")
     try:
